@@ -29,6 +29,7 @@ SOL-Setup/
 │   ├── cloudflared/           # Tunnel configuration
 │   └── README_docker.md       # Docker usage guide
 ├── scripts/                   # Operational scripts
+│   ├── master_deploy.sh       # Complete fresh deployment from scratch
 │   ├── validate.sh            # Pre-deployment validation
 │   ├── deploy.sh              # Deployment automation
 │   ├── backup.sh              # Data backup
@@ -37,6 +38,7 @@ SOL-Setup/
 │   └── service-manager.sh     # Service group management
 ├── docs/                      # Documentation
 │   ├── homelab_stack.md       # As-built architecture
+│   ├── master_deploy_guide.md # Master deployment guide
 │   ├── SOP_add_service.md     # Adding new services
 │   ├── security_best_practices.md # Security guidelines
 │   ├── quick_security_setup.md # Quick security setup
@@ -47,6 +49,38 @@ SOL-Setup/
 ```
 
 ## Quick Start
+
+### 🚀 Master Deploy (Recommended - One Command Fresh Setup)
+
+```bash
+# 1. Clone repository
+git clone <your-repo-url> ~/SOL-Setup
+cd ~/SOL-Setup
+
+# 2. Setup Cloudflare tunnel (if not already done)
+cd docker/cloudflared
+docker run --rm -v $(pwd):/root/.cloudflared cloudflare/cloudflared:latest tunnel login
+docker run --rm -v $(pwd):/root/.cloudflared cloudflare/cloudflared:latest tunnel create sol-homelab
+
+# 3. Update tunnel UUID in config files
+# Edit docker/cloudflared/config.yml and docker/services/infrastructure.yml with your tunnel UUID
+
+# 4. Run master deployment (handles everything!)
+cd ~/SOL-Setup
+make master-deploy
+```
+
+**What the master deploy does:**
+- ✅ Cleans all Docker containers, images, and volumes
+- ✅ Creates required directories with proper permissions
+- ✅ Generates secure passwords for all services
+- ✅ Sets up environment file automatically
+- ✅ Validates configuration
+- ✅ Deploys all services
+- ✅ Configures Cloudflare tunnels
+- ✅ Performs health checks
+
+### 📋 Manual Setup (Advanced Users)
 
 ```bash
 # 1. Clone repository
@@ -181,6 +215,10 @@ git tag -f last-good && git push --tags
 ### Makefile Targets
 
 ```bash
+# Master Deployment
+make master-deploy              # Complete fresh deployment from scratch
+make master-deploy-skip-cleanup # Fresh deployment without Docker cleanup
+
 # Security & Setup
 make setup-passwords  # Generate secure passwords for all services
 make validate         # Comprehensive pre-deployment validation

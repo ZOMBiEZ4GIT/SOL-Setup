@@ -1,4 +1,4 @@
-.PHONY: validate deploy fresh-deploy logs backup rollback setup-passwords status start stop restart update resources info
+.PHONY: validate deploy fresh-deploy master-deploy logs backup rollback setup-passwords status start stop restart update resources info
 
 validate:
 	bash scripts/validate.sh
@@ -17,6 +17,21 @@ fresh-deploy:
 	@echo "1. Test external access via Cloudflare tunnels"
 	@echo "2. Configure services through their web interfaces"
 	@echo "3. Create a stable backup: git add -A && git commit -m 'deploy: $(shell date +%Y%m%d-%H%M)' && git tag -f last-good && git push --tags"
+
+master-deploy:
+	@echo "🚀 Starting SOL Homelab Master Deployment..."
+	@echo "This will perform a complete fresh deployment from scratch:"
+	@echo "  • Clean all Docker containers, images, and volumes"
+	@echo "  • Set up directories and permissions"
+	@echo "  • Generate secure passwords"
+	@echo "  • Deploy all services"
+	@echo "  • Configure Cloudflare tunnels"
+	@echo ""
+	bash scripts/master_deploy.sh
+
+master-deploy-skip-cleanup:
+	@echo "🚀 Starting SOL Homelab Master Deployment (skipping cleanup)..."
+	bash scripts/master_deploy.sh --skip-cleanup
 
 logs:
 	@echo "Showing cloudflared logs (ctrl+c to exit)..."
