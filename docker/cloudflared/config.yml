@@ -1,0 +1,40 @@
+tunnel: <TUNNEL_UUID>
+credentials-file: /etc/cloudflared/<TUNNEL_UUID>.json
+
+ingress:
+  - hostname: plex.rolandgeorge.me
+    service: http://127.0.0.1:32400
+
+  - hostname: sonarr.rolandgeorge.me
+    service: http://127.0.0.1:8989
+  - hostname: radarr.rolandgeorge.me
+    service: http://127.0.0.1:7878
+  - hostname: n8n.rolandgeorge.me
+    service: http://127.0.0.1:5678
+  - hostname: qbit.rolandgeorge.me
+    service: http://127.0.0.1:8080
+  - hostname: portainer.rolandgeorge.me
+    service: http://127.0.0.1:9000
+  - hostname: dash.rolandgeorge.me
+    service: http://127.0.0.1:7575
+
+  - hostname: prowlarr.rolandgeorge.me
+    service: http://127.0.0.1:9696
+  - hostname: bazarr.rolandgeorge.me
+    service: http://127.0.0.1:6767
+  - hostname: overseerr.rolandgeorge.me
+    service: http://127.0.0.1:5055
+  - hostname: tautulli.rolandgeorge.me
+    service: http://127.0.0.1:8181
+  - hostname: glances.rolandgeorge.me
+    service: http://127.0.0.1:61208
+  - hostname: status.rolandgeorge.me
+    service: http://127.0.0.1:3001
+  - hostname: logs.rolandgeorge.me
+    service: http://127.0.0.1:9999
+
+  # AdGuard first-run wizard on :3000
+  - hostname: dns.rolandgeorge.me
+    service: http://127.0.0.1:3000
+
+  - service: http_status:404
