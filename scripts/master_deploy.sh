@@ -350,9 +350,15 @@ setup_cloudflare_tunnel_interactive() {
     echo "Checking for existing tunnels..."
     
     local tunnel_list
-    tunnel_list=$(docker run --rm -v "$(pwd)/cloudflared:/root/.cloudflared" cloudflare/cloudflared:latest tunnel list 2>/dev/null)
+    local list_exit_code
     
-    if echo "$tunnel_list" | grep -q "ID"; then
+    # Try to list tunnels, capture both output and exit code
+    set +e  # Temporarily disable exit on error
+    tunnel_list=$(docker run --rm -v "$(pwd)/cloudflared:/root/.cloudflared" cloudflare/cloudflared:latest tunnel list 2>&1)
+    list_exit_code=$?
+    set -e  # Re-enable exit on error
+    
+    if [ $list_exit_code -eq 0 ] && echo "$tunnel_list" | grep -q "ID"; then
         echo "Found existing tunnels:"
         echo "$tunnel_list"
         echo ""
@@ -362,11 +368,22 @@ setup_cloudflare_tunnel_interactive() {
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             echo "Please copy the UUID of the tunnel you want to use from the list above."
             read -p "Enter tunnel UUID: " tunnel_uuid
+            
+            # Validate UUID format
+            if [[ ! $tunnel_uuid =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]]; then
+                warn "Invalid UUID format. Creating a new tunnel instead..."
+                create_new_tunnel
+            fi
         else
             create_new_tunnel
         fi
-    else
+    elif [ $list_exit_code -eq 0 ] && echo "$tunnel_list" | grep -q "No tunnels"; then
         info "No existing tunnels found. Creating a new one..."
+        create_new_tunnel
+    else
+        warn "Could not list tunnels (this is normal for new accounts):"
+        echo "$tunnel_list"
+        info "Creating a new tunnel..."
         create_new_tunnel
     fi
     
@@ -389,21 +406,43 @@ setup_cloudflare_tunnel_interactive() {
 
 # Create new tunnel
 create_new_tunnel() {
-    local tunnel_name="sol-homelab-$(date +%Y%m%d)"
+    local tunnel_name="sol-homelab-$(date +%Y%m%d-%H%M)"
     
     log "Creating new tunnel: $tunnel_name"
     
     local create_output
-    create_output=$(docker run --rm -v "$(pwd)/cloudflared:/root/.cloudflared" cloudflare/cloudflared:latest tunnel create "$tunnel_name" 2>&1)
+    local create_exit_code
     
-    if echo "$create_output" | grep -q "Created tunnel"; then
+    # Try to create tunnel
+    set +e  # Temporarily disable exit on error
+    create_output=$(docker run --rm -v "$(pwd)/cloudflared:/root/.cloudflared" cloudflare/cloudflared:latest tunnel create "$tunnel_name" 2>&1)
+    create_exit_code=$?
+    set -e  # Re-enable exit on error
+    
+    if [ $create_exit_code -eq 0 ] && echo "$create_output" | grep -q "Created tunnel"; then
         tunnel_uuid=$(echo "$create_output" | grep "Created tunnel" | sed -E 's/.*with id: ([a-f0-9-]+).*/\1/')
         success "Created new tunnel: $tunnel_name"
         info "Tunnel UUID: $tunnel_uuid"
     else
         error "Failed to create tunnel:"
         echo "$create_output"
-        exit 1
+        echo ""
+        error "Possible solutions:"
+        error "1. Check your Cloudflare account has tunnel permissions"
+        error "2. Verify you're logged into the correct Cloudflare account"
+        error "3. Try creating a tunnel manually in the Cloudflare dashboard"
+        error ""
+        error "You can continue with local-only deployment and configure tunnels later."
+        
+        read -p "Continue without Cloudflare tunnel? (y/N): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            tunnel_uuid="<TUNNEL_UUID>"  # Use placeholder
+            warn "Continuing with placeholder configuration"
+            return 0
+        else
+            exit 1
+        fi
     fi
 }
 
