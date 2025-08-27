@@ -270,55 +270,218 @@ setup_environment() {
     echo ""
 }
 
-# Check and guide cloudflared setup
-check_cloudflared_setup() {
-    step "Checking Cloudflared tunnel configuration..."
+# Setup and guide cloudflared configuration
+setup_cloudflared_config() {
+    step "Setting up Cloudflared tunnel configuration..."
     
     cd "$PROJECT_ROOT/docker"
     
     # Check if config exists
     if [ ! -f "cloudflared/config.yml" ]; then
-        error "cloudflared/config.yml not found"
-        info "Please set up Cloudflare tunnel manually:"
-        info "1. Login to Cloudflare: docker run --rm -v \$(pwd)/cloudflared:/root/.cloudflared cloudflare/cloudflared:latest tunnel login"
-        info "2. Create tunnel: docker run --rm -v \$(pwd)/cloudflared:/root/.cloudflared cloudflare/cloudflared:latest tunnel create my-homelab"
-        info "3. Update docker/services/infrastructure.yml with your tunnel UUID"
-        info "4. Update docker/cloudflared/config.yml with your tunnel UUID"
-        info "5. Re-run this script"
+        warn "Cloudflared config not found. Setting up interactively..."
+        
+        echo ""
+        info "🔧 CLOUDFLARE TUNNEL SETUP REQUIRED"
+        echo "======================================="
+        echo ""
+        echo "To use external access via Cloudflare tunnels, you need to:"
+        echo "1. Login to your Cloudflare account"
+        echo "2. Create or use an existing tunnel"
+        echo "3. Configure the tunnel UUID"
+        echo ""
+        
+        read -p "Do you want to set up Cloudflare tunnel now? (y/N): " -n 1 -r
+        echo
+        
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            setup_cloudflare_tunnel_interactive
+        else
+            warn "Skipping Cloudflare tunnel setup"
+            warn "Services will only be accessible locally"
+            
+            # Create minimal config for local-only deployment
+            cat > cloudflared/config.yml << 'EOF'
+# Cloudflare Tunnel Configuration - PLACEHOLDER
+# To enable external access, replace <TUNNEL_UUID> with your actual tunnel UUID
+# and download your tunnel credentials file
+
+tunnel: <TUNNEL_UUID>
+credentials-file: /etc/cloudflared/<TUNNEL_UUID>.json
+
+# This configuration is for local testing only
+# External access will not work until tunnel is properly configured
+ingress:
+  - service: http_status:404
+EOF
+            info "Created placeholder config at cloudflared/config.yml"
+            info "You can configure the tunnel later and re-run: make master-deploy"
+            return 0
+        fi
+    fi
+    
+    # Validate existing config
+    validate_cloudflared_config
+}
+
+# Interactive Cloudflare tunnel setup
+setup_cloudflare_tunnel_interactive() {
+    log "Starting interactive Cloudflare tunnel setup..."
+    
+    # Step 1: Login
+    echo ""
+    info "Step 1: Login to Cloudflare"
+    echo "This will open a browser window for authentication..."
+    read -p "Press Enter to continue..."
+    
+    if ! docker run --rm -v "$(pwd)/cloudflared:/root/.cloudflared" cloudflare/cloudflared:latest tunnel login; then
+        error "Failed to login to Cloudflare"
+        info "You can continue without Cloudflare tunnel (local access only)"
+        read -p "Continue without tunnel? (y/N): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            exit 1
+        fi
+        return 0
+    fi
+    
+    # Step 2: List existing tunnels or create new one
+    echo ""
+    info "Step 2: Choose tunnel"
+    echo "Checking for existing tunnels..."
+    
+    local tunnel_list
+    tunnel_list=$(docker run --rm -v "$(pwd)/cloudflared:/root/.cloudflared" cloudflare/cloudflared:latest tunnel list 2>/dev/null)
+    
+    if echo "$tunnel_list" | grep -q "ID"; then
+        echo "Found existing tunnels:"
+        echo "$tunnel_list"
+        echo ""
+        read -p "Do you want to use an existing tunnel? (y/N): " -n 1 -r
+        echo
+        
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            echo "Please copy the UUID of the tunnel you want to use from the list above."
+            read -p "Enter tunnel UUID: " tunnel_uuid
+        else
+            create_new_tunnel
+        fi
+    else
+        info "No existing tunnels found. Creating a new one..."
+        create_new_tunnel
+    fi
+    
+    # Step 3: Update configuration files
+    update_tunnel_config "$tunnel_uuid"
+    
+    # Step 4: Download credentials
+    log "Downloading tunnel credentials..."
+    if ! docker run --rm -v "$(pwd)/cloudflared:/root/.cloudflared" cloudflare/cloudflared:latest tunnel download "$tunnel_uuid"; then
+        error "Failed to download tunnel credentials"
         exit 1
     fi
+    
+    # Set proper permissions
+    chmod 640 "cloudflared/${tunnel_uuid}.json"
+    
+    success "Cloudflare tunnel configured successfully!"
+    info "Tunnel UUID: $tunnel_uuid"
+}
+
+# Create new tunnel
+create_new_tunnel() {
+    local tunnel_name="sol-homelab-$(date +%Y%m%d)"
+    
+    log "Creating new tunnel: $tunnel_name"
+    
+    local create_output
+    create_output=$(docker run --rm -v "$(pwd)/cloudflared:/root/.cloudflared" cloudflare/cloudflared:latest tunnel create "$tunnel_name" 2>&1)
+    
+    if echo "$create_output" | grep -q "Created tunnel"; then
+        tunnel_uuid=$(echo "$create_output" | grep "Created tunnel" | sed -E 's/.*with id: ([a-f0-9-]+).*/\1/')
+        success "Created new tunnel: $tunnel_name"
+        info "Tunnel UUID: $tunnel_uuid"
+    else
+        error "Failed to create tunnel:"
+        echo "$create_output"
+        exit 1
+    fi
+}
+
+# Update tunnel configuration files
+update_tunnel_config() {
+    local uuid="$1"
+    
+    log "Updating configuration files with tunnel UUID..."
+    
+    # Update cloudflared/config.yml
+    if [ -f "cloudflared/config.yml" ]; then
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' "s/<TUNNEL_UUID>/$uuid/g" cloudflared/config.yml
+        else
+            sed -i "s/<TUNNEL_UUID>/$uuid/g" cloudflared/config.yml
+        fi
+    fi
+    
+    # Update services/infrastructure.yml
+    if [ -f "services/infrastructure.yml" ]; then
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' "s/<TUNNEL_UUID>/$uuid/g" services/infrastructure.yml
+        else
+            sed -i "s/<TUNNEL_UUID>/$uuid/g" services/infrastructure.yml
+        fi
+    fi
+    
+    success "Updated configuration files with tunnel UUID"
+}
+
+# Validate existing cloudflared configuration
+validate_cloudflared_config() {
+    log "Validating Cloudflared configuration..."
     
     # Extract UUID from config.yml
     local config_uuid
     config_uuid=$(grep "^tunnel:" cloudflared/config.yml | sed 's/tunnel: *//' | tr -d ' ')
     
     if [ "$config_uuid" = "<TUNNEL_UUID>" ] || [ -z "$config_uuid" ]; then
-        error "Tunnel UUID not configured in cloudflared/config.yml"
-        info "Please configure your Cloudflare tunnel:"
-        info "1. Get your tunnel UUID: docker run --rm cloudflare/cloudflared:latest tunnel list"
-        info "2. Update tunnel UUID in docker/cloudflared/config.yml"
-        info "3. Update tunnel UUID in docker/services/infrastructure.yml"
-        info "4. Re-run this script"
-        exit 1
+        warn "Tunnel UUID not configured in cloudflared/config.yml"
+        warn "External access will not work until tunnel is properly configured"
+        
+        read -p "Do you want to configure the tunnel now? (y/N): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            setup_cloudflare_tunnel_interactive
+            return 0
+        else
+            warn "Continuing with local-only deployment"
+            return 0
+        fi
     fi
     
     # Check credentials file
     local creds_file="cloudflared/${config_uuid}.json"
     if [ ! -f "$creds_file" ]; then
-        error "Tunnel credentials file not found: $creds_file"
-        info "Download credentials: docker run --rm -v \$(pwd)/cloudflared:/root/.cloudflared cloudflare/cloudflared:latest tunnel download $config_uuid"
-        exit 1
+        warn "Tunnel credentials file not found: $creds_file"
+        info "Downloading credentials..."
+        
+        if docker run --rm -v "$(pwd)/cloudflared:/root/.cloudflared" cloudflare/cloudflared:latest tunnel download "$config_uuid"; then
+            chmod 640 "$creds_file"
+            success "Downloaded tunnel credentials"
+        else
+            warn "Failed to download credentials - continuing without external access"
+            return 0
+        fi
     fi
     
     # Check if UUID is updated in infrastructure.yml
     if grep -q "<TUNNEL_UUID>" services/infrastructure.yml; then
-        error "Tunnel UUID not updated in services/infrastructure.yml"
-        info "Please update <TUNNEL_UUID> with your actual tunnel UUID: $config_uuid"
-        exit 1
+        log "Updating services/infrastructure.yml with tunnel UUID..."
+        update_tunnel_config "$config_uuid"
     fi
     
     # Set proper permissions
-    chmod 640 "$creds_file"
+    if [ -f "$creds_file" ]; then
+        chmod 640 "$creds_file"
+    fi
     
     success "Cloudflared configuration validated (UUID: ${config_uuid:0:8}...)"
 }
@@ -546,7 +709,7 @@ main() {
     setup_environment
     
     # Configuration validation
-    check_cloudflared_setup
+    setup_cloudflared_config
     validate_configuration
     
     # Deployment
