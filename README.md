@@ -45,6 +45,9 @@ SOL-Setup/
 git clone <your-repo-url> ~/SOL-Setup
 cd ~/SOL-Setup && chmod +x scripts/*.sh
 
+# Setup security (REQUIRED - generates secure passwords)
+make setup-passwords
+
 # Validate and deploy
 make validate
 make deploy
@@ -52,6 +55,8 @@ make deploy
 # Monitor logs
 make logs
 ```
+
+**⚠️ Security First**: Always run `make setup-passwords` before deploying to production!
 
 ---
 
@@ -80,6 +85,10 @@ cp env.template .env
 # - ProtonVPN credentials  
 # - User/Group IDs if different from 1000:1000
 # - Timezone if not Australia/Melbourne
+
+# OR use the automated password generator:
+cd ~/SOL-Setup
+make setup-passwords
 ```
 
 ### 4. Setup Cloudflared Credentials (Local-Config)
@@ -150,11 +159,12 @@ git tag -f last-good && git push --tags
 ### Makefile Targets
 
 ```bash
-make validate    # Lint compose and check ports
-make deploy      # Pull images and deploy stack  
-make logs        # Follow logs from all services
-make backup      # Create timestamped backup
-make rollback    # Reset to last-good tag and redeploy
+make setup-passwords  # Generate secure passwords for all services
+make validate         # Lint compose and check ports
+make deploy           # Pull images and deploy stack  
+make logs             # Follow logs from all services
+make backup           # Create timestamped backup
+make rollback         # Reset to last-good tag and redeploy
 ```
 
 ### Manual Operations
@@ -276,11 +286,14 @@ id $USER  # Should match PUID:PGID in .env
 ## Security Considerations
 
 - **No secrets in git**: All credentials in `.env` (gitignored)
+- **Secure passwords**: Automated password generation with `make setup-passwords`
 - **VPN for torrents**: qBittorrent routed through ProtonVPN
 - **DNS filtering**: AdGuard Home blocks ads/malware network-wide
 - **Secure tunnel**: Cloudflare handles SSL/TLS termination
 - **Container isolation**: Each service runs in isolated container
+- **Security constraints**: All containers run with `no-new-privileges` (except VPN)
 - **Minimal attack surface**: No direct port forwarding required
+- **Port conflict detection**: Automated validation prevents port conflicts
 
 ---
 
@@ -364,9 +377,10 @@ GITHUB_REPO="your-username/your-backup-repo"
 
 1. Follow the SOP in `docs/SOP_add_service.md` for new services
 2. Use the master prompts in `docs/prompts/` for guided setup
-3. Update documentation when adding services
-4. Test thoroughly before committing
-5. Tag stable deployments with `last-good`
+3. Follow security best practices in `docs/security_best_practices.md`
+4. Update documentation when adding services
+5. Test thoroughly before committing
+6. Tag stable deployments with `last-good`
 
 ## Support
 

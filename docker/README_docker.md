@@ -69,17 +69,24 @@ docker compose down  # Also removes containers
 
 ## Environment Variables
 
-1. Copy the environment template:
+1. **Automated Setup (Recommended)**:
    ```bash
-   cp env.template .env
+   cd ~/SOL-Setup
+   make setup-passwords
    ```
 
-2. Edit `.env` and fill in your actual values:
-   - ProtonVPN credentials
-   - User/Group IDs if different from 1000:1000
-   - Timezone if not Australia/Melbourne
-   - **Optional**: Shoutrrr URL for Watchtower notifications
-   - **Optional**: Grafana admin password
+2. **Manual Setup**:
+   ```bash
+   cp env.template .env
+   # Edit .env and fill in your actual values:
+   # - ProtonVPN credentials
+   # - User/Group IDs if different from 1000:1000
+   # - Timezone if not Australia/Melbourne
+   # - **Optional**: Shoutrrr URL for Watchtower notifications
+   # - **Optional**: Grafana admin password
+   ```
+
+**Note**: The automated setup generates secure passwords for n8n, Grafana, and backup encryption.
 
 ## Security Features
 
@@ -164,7 +171,7 @@ When all services are running, these ports will be available on localhost:
 - **Grafana**: 3000
 - **Prometheus**: 9090
 - **Node Exporter**: 9100
-- **cAdvisor**: 8080
+- **cAdvisor**: 8081 (changed from 8080 to avoid conflict)
 - **Loki**: 3100
 
 ## Health Check Endpoints

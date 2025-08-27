@@ -7,7 +7,7 @@ Before adding any new service, work through this checklist:
 1. **Purpose**: What specific problem does this service solve? Is it redundant with existing services?
 2. **Access Scope**: Does this need LAN-only, Cloudflare Tunnel, or Cloudflare Access protection?
 3. **VPN Requirement**: Should this service route through VPN (gluetun) for privacy/security?
-4. **Port Availability**: Is the default port free? Check with `netstat -tlnp | grep :PORT`
+4. **Port Availability**: Is the default port free? Check with `make validate` for port conflicts
 5. **Data Location**: Where will persistent data be stored? (`./servicename/` or specific host path?)
 6. **Secrets Handling**: Does it need credentials? How will they be managed securely?
 7. **Naming Convention**: 
@@ -17,6 +17,8 @@ Before adding any new service, work through this checklist:
 8. **Security Model**: App-level authentication vs Cloudflare Access vs both?
 9. **Backup Requirements**: What data needs to be backed up? Update `backup.sh`?
 10. **Monitoring**: Should this be monitored in Uptime-Kuma? Dashboard tile in Homarr?
+11. **Security Constraints**: Ensure `security_opt: ["no-new-privileges:true"]` is added
+12. **Password Management**: Use environment variables for any credentials, not hardcoded values
 
 ## 1) Compose Templates
 
@@ -37,6 +39,27 @@ servicename:
   volumes:
     - ./servicename/config:/config
     # Add other volume mounts
+  security_opt: ["no-new-privileges:true"]
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://127.0.0.1:PORT/health"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 60s
+  deploy:
+    resources:
+      limits:
+        memory: 256M
+        cpus: '0.25'
+      reservations:
+        memory: 64M
+        cpus: '0.05'
+  logging:
+    driver: "loki"
+    options:
+      loki-url: "http://loki:3100/loki/api/v1/push"
+      loki-pipeline-stages: "timestamp"
+      loki-external-labels: "service=servicename,environment=homelab"
 ```
 
 ### VPN-Routed Service Template

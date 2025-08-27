@@ -1,4 +1,4 @@
-.PHONY: validate deploy logs backup rollback
+.PHONY: validate deploy logs backup rollback setup-passwords
 
 validate:
 	bash scripts/validate.sh
@@ -14,3 +14,6 @@ backup:
 
 rollback:
 	bash scripts/rollback.sh
+
+setup-passwords:
+	bash scripts/generate_passwords.sh

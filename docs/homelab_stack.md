@@ -150,6 +150,7 @@ The SOL homelab is a comprehensive media and automation stack running on Ubuntu 
 - **Dozzle** → Real-time log aggregation
 - **Portainer** → Docker container management
 - **Homarr** → Central dashboard for all services
+- **cAdvisor** → Container metrics and performance monitoring
 
 ### Access Flow
 - **Cloudflared** runs in host mode with access to 127.0.0.1
@@ -206,6 +207,7 @@ The SOL homelab is a comprehensive media and automation stack running on Ubuntu 
 - **61208**: Glances
 - **3001**: Uptime-Kuma
 - **9999**: Dozzle
+- **8081**: cAdvisor (container metrics)
 - **53/3000**: AdGuard Home
 
 ### External Access
