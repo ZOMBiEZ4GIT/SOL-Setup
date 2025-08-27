@@ -155,25 +155,28 @@ install_loki_plugin() {
     # Install the Loki logging plugin
     if docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all-permissions; then
         success "Loki logging plugin installed successfully"
+        
+        # Always create the override file to fix pipeline-stages issue
+        log "Creating Loki configuration override to fix pipeline-stages issue..."
+        disable_loki_logging
     else
         warn "Failed to install Loki logging plugin"
         warn "Will deploy with standard Docker logging instead"
         
-        # Disable Loki logging in compose config
-        disable_loki_logging
+        # Create override to completely disable Loki logging
+        create_no_loki_override
         return 0
     fi
 }
 
-# Disable Loki logging if plugin installation fails
-disable_loki_logging() {
-    log "Disabling Loki logging configuration..."
+# Create override to completely disable Loki logging
+create_no_loki_override() {
+    log "Creating override to disable Loki logging entirely..."
     
     cd "$PROJECT_ROOT/docker"
     
-    # Create a temporary compose override to disable Loki logging
     cat > docker-compose.override.yml << 'EOF'
-# Temporary override to disable Loki logging
+# Override to disable Loki logging entirely
 # This file is auto-generated when Loki plugin is not available
 
 services:
@@ -230,6 +233,192 @@ EOF
     
     warn "Created docker-compose.override.yml to disable Loki logging"
     info "You can enable Loki logging later by removing this file and restarting services"
+}
+
+# Fix or disable Loki logging configuration
+disable_loki_logging() {
+    log "Fixing Loki logging configuration..."
+    
+    cd "$PROJECT_ROOT/docker"
+    
+    # Create a compose override to fix Loki logging configuration
+    cat > docker-compose.override.yml << 'EOF'
+# Override to fix Loki logging configuration
+# This file is auto-generated to resolve Loki pipeline stage configuration issues
+
+services:
+  # Fix Loki logging for all services by removing problematic pipeline-stages
+  cloudflared:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=cloudflared,environment=homelab"
+  
+  adguardhome:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=adguardhome,environment=homelab"
+  
+  portainer:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=portainer,environment=homelab"
+  
+  homarr:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=homarr,environment=homelab"
+  
+  n8n:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=n8n,environment=homelab"
+  
+  watchtower:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=watchtower,environment=homelab"
+  
+  plex:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=plex,environment=homelab"
+  
+  sonarr:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=sonarr,environment=homelab"
+  
+  radarr:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=radarr,environment=homelab"
+  
+  prowlarr:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=prowlarr,environment=homelab"
+  
+  bazarr:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=bazarr,environment=homelab"
+  
+  overseerr:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=overseerr,environment=homelab"
+  
+  tautulli:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=tautulli,environment=homelab"
+  
+  gluetun:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=gluetun,environment=homelab"
+  
+  qbittorrent:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=qbittorrent,environment=homelab"
+  
+  glances:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=glances,environment=homelab"
+  
+  uptime-kuma:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=uptime-kuma,environment=homelab"
+  
+  dozzle:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=dozzle,environment=homelab"
+  
+  prometheus:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=prometheus,environment=homelab"
+  
+  node-exporter:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=node-exporter,environment=homelab"
+  
+  cadvisor:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=cadvisor,environment=homelab"
+  
+  loki:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=loki,environment=homelab"
+  
+  promtail:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=promtail,environment=homelab"
+  
+  grafana:
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=grafana,environment=homelab"
+EOF
+    
+    warn "Created docker-compose.override.yml to fix Loki logging configuration"
+    info "Removed problematic 'loki-pipeline-stages' option that was causing YAML parsing errors"
 }
 
 # Complete Docker cleanup
@@ -677,10 +866,17 @@ EOF
     if [ -f "docker/docker-compose.override.yml" ]; then
         echo ""
         warn "LOGGING NOTICE:"
-        warn "  • Loki logging plugin could not be installed"
-        warn "  • Services are using standard Docker logging instead"
-        warn "  • Centralized logging via Loki service may not work optimally"
-        warn "  • Remove docker/docker-compose.override.yml and restart to re-enable"
+        if grep -q "loki-url" docker/docker-compose.override.yml; then
+            warn "  • Loki logging configuration has been fixed"
+            warn "  • Removed problematic 'loki-pipeline-stages' option"
+            warn "  • Centralized logging should work correctly"
+            warn "  • Override file: docker/docker-compose.override.yml"
+        else
+            warn "  • Loki logging plugin could not be installed"
+            warn "  • Services are using standard Docker logging instead"
+            warn "  • Centralized logging via Loki service may not work optimally"
+            warn "  • Remove docker/docker-compose.override.yml and restart to re-enable"
+        fi
     fi
     
     echo ""
