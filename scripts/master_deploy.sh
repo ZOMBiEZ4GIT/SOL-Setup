@@ -105,36 +105,66 @@ check_dependencies() {
 check_docker_daemon() {
     step "Checking Docker daemon..."
     
-    if ! docker info &> /dev/null; then
-        error "Docker daemon not running"
-        info "Starting Docker daemon..."
-        
-        # Try to start Docker if possible
-        if command -v systemctl &> /dev/null; then
-            sudo systemctl start docker
-            sleep 3
-            if ! docker info &> /dev/null; then
-                error "Failed to start Docker daemon"
-                error "Please start Docker manually: sudo systemctl start docker"
-                exit 1
-            fi
-        else
-            error "Please start Docker daemon manually"
-            exit 1
-        fi
-    fi
-    
-    # Determine compose command
-    if docker compose version &> /dev/null; then
-        COMPOSE_CMD="docker compose"
-    elif docker-compose version &> /dev/null; then
-        COMPOSE_CMD="docker-compose"
-    else
-        error "Neither 'docker compose' nor 'docker-compose' available"
+    # Check if Docker command exists
+    if ! command -v docker &> /dev/null; then
+        error "Docker not found. Please install Docker Desktop first."
+        error "Download from: https://www.docker.com/products/docker-desktop/"
         exit 1
     fi
     
-    success "Docker daemon running (using: $COMPOSE_CMD)"
+    # Check if Docker daemon is accessible
+    local docker_attempts=0
+    local max_attempts=30
+    
+    while [ $docker_attempts -lt $max_attempts ]; do
+        if docker info &> /dev/null 2>&1; then
+            break
+        fi
+        
+        if [ $docker_attempts -eq 0 ]; then
+            warn "Docker daemon not accessible"
+            info "This usually means Docker Desktop isn't running yet"
+            echo ""
+            info "Please start Docker Desktop:"
+            info "1. Open Docker Desktop application"
+            info "2. Wait for it to show 'Engine running' (green indicator)"
+            info "3. This script will wait up to 5 minutes for Docker to start"
+            echo ""
+            log "Waiting for Docker Desktop to start..."
+        fi
+        
+        echo -ne "\rWaiting for Docker... ($((docker_attempts + 1))/$max_attempts) "
+        sleep 10
+        docker_attempts=$((docker_attempts + 1))
+    done
+    
+    echo "" # New line after the waiting dots
+    
+    if ! docker info &> /dev/null 2>&1; then
+        error "Docker daemon still not accessible after waiting"
+        error "Please ensure Docker Desktop is running and try again"
+        error ""
+        error "Common solutions:"
+        error "• Start Docker Desktop application"
+        error "• Restart Docker Desktop if it's stuck"
+        error "• Check Windows services for Docker Desktop Service"
+        exit 1
+    fi
+    
+    success "Docker daemon is running"
+    
+    # Determine compose command
+    if docker compose version &> /dev/null 2>&1; then
+        COMPOSE_CMD="docker compose"
+    elif docker-compose version &> /dev/null 2>&1; then
+        COMPOSE_CMD="docker-compose"
+    else
+        error "Neither 'docker compose' nor 'docker-compose' available"
+        error "Please ensure Docker Desktop is properly installed"
+        exit 1
+    fi
+    
+    success "Docker Compose available (using: $COMPOSE_CMD)"
     
     # Install Loki logging plugin
     install_loki_plugin
@@ -152,8 +182,14 @@ install_loki_plugin() {
     
     log "Installing Loki logging driver plugin..."
     
-    # Install the Loki logging plugin
-    if docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all-permissions; then
+    # Try to install the Loki logging plugin
+    set +e  # Don't exit on error for plugin installation
+    local plugin_install_output
+    plugin_install_output=$(docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all-permissions 2>&1)
+    local plugin_exit_code=$?
+    set -e  # Re-enable exit on error
+    
+    if [ $plugin_exit_code -eq 0 ]; then
         success "Loki logging plugin installed successfully"
         
         # Always create the override file to fix pipeline-stages issue
@@ -161,10 +197,16 @@ install_loki_plugin() {
         disable_loki_logging
     else
         warn "Failed to install Loki logging plugin"
-        warn "Will deploy with standard Docker logging instead"
-        
-        # Create override to completely disable Loki logging
-        create_no_loki_override
+        if echo "$plugin_install_output" | grep -q "already exists"; then
+            warn "Plugin already exists - creating configuration override"
+            disable_loki_logging
+        else
+            warn "Will deploy with standard Docker logging instead"
+            warn "Plugin installation error: $plugin_install_output"
+            
+            # Create override to completely disable Loki logging
+            create_no_loki_override
+        fi
         return 0
     fi
 }
@@ -838,6 +880,7 @@ EOF
     warn "  • Services use default passwords (changeme123) - NOT secure for production"
     warn "  • VPN services will not work until credentials are configured"
     warn "  • Services are LOCAL ONLY until external access is configured"
+    warn "  • Docker Desktop must remain running for services to work"
     warn "  • Run the setup scripts above to complete configuration"
     warn "  • Backup after full configuration: git add -A && git commit -m 'deploy: $(date +%Y%m%d-%H%M)'"
     
