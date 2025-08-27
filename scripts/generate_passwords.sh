@@ -95,7 +95,7 @@ generate_all_passwords() {
         success "Generated backup encryption password"
     fi
     
-    success "All passwords generated and updated in .env file"
+    success "All passwords generated and updated in docker/.env file"
 }
 
 # Display password summary
@@ -114,8 +114,9 @@ show_password_summary() {
     fi
     
     echo ""
-    warn "IMPORTANT: Keep these passwords secure and backup your .env file!"
-    warn "Never commit .env file to version control!"
+    warn "IMPORTANT: Keep these passwords secure and backup your docker/.env file!"
+    warn "Never commit docker/.env file to version control!"
+    warn "The .env file is located at: docker/.env (not in the repo root)"
 }
 
 # Main function

@@ -1,4 +1,4 @@
-.PHONY: validate deploy logs backup rollback setup-passwords status start stop restart update resources info
+.PHONY: validate deploy fresh-deploy logs backup rollback setup-passwords status start stop restart update resources info
 
 validate:
 	bash scripts/validate.sh
@@ -6,8 +6,21 @@ validate:
 deploy:
 	bash scripts/deploy.sh
 
+fresh-deploy:
+	@echo "Running fresh deployment pipeline..."
+	@make validate
+	@make deploy
+	@echo ""
+	@echo "🎉 Fresh deployment completed!"
+	@echo ""
+	@echo "Post-deployment steps:"
+	@echo "1. Test external access via Cloudflare tunnels"
+	@echo "2. Configure services through their web interfaces"
+	@echo "3. Create a stable backup: git add -A && git commit -m 'deploy: $(shell date +%Y%m%d-%H%M)' && git tag -f last-good && git push --tags"
+
 logs:
-	bash scripts/service-manager.sh logs
+	@echo "Showing cloudflared logs (ctrl+c to exit)..."
+	@cd docker && docker compose logs -f cloudflared
 
 status:
 	bash scripts/service-manager.sh status

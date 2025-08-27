@@ -1,7 +1,7 @@
 # SOL Homelab - Main Orchestrator
 # This file orchestrates all service groups and provides shared configuration
 
-version: '3.8'
+
 
 # Shared configuration for all services
 x-common-config: &common-config

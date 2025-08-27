@@ -49,22 +49,36 @@ SOL-Setup/
 ## Quick Start
 
 ```bash
-# Clone and setup
+# 1. Clone repository
 git clone <your-repo-url> ~/SOL-Setup
 cd ~/SOL-Setup && chmod +x scripts/*.sh
 
-# Setup security (REQUIRED - generates secure passwords)
-make setup-passwords
+# 2. Setup environment file (CRITICAL: must be in docker/ directory)
+cp docker/env.template docker/.env
+nano docker/.env  # Edit with your VPN credentials and preferences
 
-# Validate and deploy
+# 3. Setup Cloudflared tunnel
+cd docker/cloudflared
+# Login and create/download tunnel credentials
+docker run --rm -v $(pwd):/root/.cloudflared cloudflare/cloudflared:latest tunnel login
+docker run --rm -v $(pwd):/root/.cloudflared cloudflare/cloudflared:latest tunnel create sol-homelab
+
+# 4. Update tunnel UUID in config files
+# Edit docker/cloudflared/config.yml and docker/services/infrastructure.yml with your tunnel UUID
+
+# 5. Deploy everything
+cd ~/SOL-Setup
+make fresh-deploy
+
+# 6. Test deployment
 make validate
-make deploy
-
-# Monitor logs
-make logs
+bash scripts/test_routes.sh  # Optional: test all service routes
 ```
 
-**⚠️ Security First**: Always run `make setup-passwords` before deploying to production!
+**⚠️ Critical Requirements**:
+- Environment file MUST be at `docker/.env` (not repo root)
+- Same tunnel UUID in both `cloudflared/config.yml` and `services/infrastructure.yml`
+- Run `make validate` before deployment to catch configuration issues
 
 ---
 
@@ -169,11 +183,12 @@ git tag -f last-good && git push --tags
 ```bash
 # Security & Setup
 make setup-passwords  # Generate secure passwords for all services
-make validate         # Lint compose and check ports
+make validate         # Comprehensive pre-deployment validation
 
 # Deployment & Management
 make deploy           # Pull images and deploy stack  
-make logs             # Follow logs from all services
+make fresh-deploy     # Run validate + deploy + show post-deploy steps
+make logs             # Follow cloudflared logs (default)
 make status           # Show service status
 
 # Service Group Management
@@ -201,6 +216,10 @@ cd docker
 docker compose up -d servicename
 docker compose restart servicename
 docker compose logs -f servicename
+
+# Route testing and validation
+bash scripts/test_routes.sh     # Test all cloudflared routes
+bash scripts/validate.sh        # Full system validation
 
 # System maintenance
 docker compose pull              # Update images

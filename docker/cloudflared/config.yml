@@ -1,3 +1,6 @@
+# Cloudflare Tunnel Configuration
+# Replace <TUNNEL_UUID> with your actual tunnel UUID from: cloudflared tunnel list
+# Ensure the same UUID is used in docker-compose.yml cloudflared command
 tunnel: <TUNNEL_UUID>
 credentials-file: /etc/cloudflared/<TUNNEL_UUID>.json
 
