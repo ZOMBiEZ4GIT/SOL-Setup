@@ -44,19 +44,43 @@ success() {
 
 # Check dependencies
 check_dependencies() {
-    local deps=("tar" "gzip" "openssl" "rclone" "git")
+    local deps=("tar" "gzip" "openssl")
+    local optional_deps=("rclone" "git")
     local missing=()
+    local missing_optional=()
     
+    # Check required dependencies
     for dep in "${deps[@]}"; do
         if ! command -v "$dep" &> /dev/null; then
             missing+=("$dep")
         fi
     done
     
+    # Check optional dependencies
+    for dep in "${optional_deps[@]}"; do
+        if ! command -v "$dep" &> /dev/null; then
+            missing_optional+=("$dep")
+        fi
+    done
+    
     if [ ${#missing[@]} -ne 0 ]; then
-        error "Missing dependencies: ${missing[*]}"
+        error "Missing required dependencies: ${missing[*]}"
         error "Please install: sudo apt install ${missing[*]}"
         exit 1
+    fi
+    
+    if [ ${#missing_optional[@]} -ne 0 ]; then
+        warn "Missing optional dependencies: ${missing_optional[*]}"
+        warn "Some backup features will be disabled"
+        warn "To enable all features: sudo apt install ${missing_optional[*]}"
+        
+        # Disable features that require missing dependencies
+        if [[ " ${missing_optional[*]} " =~ " rclone " ]]; then
+            PROTON_DRIVE_BACKUP=false
+        fi
+        if [[ " ${missing_optional[*]} " =~ " git " ]]; then
+            GITHUB_BACKUP=false
+        fi
     fi
 }
 

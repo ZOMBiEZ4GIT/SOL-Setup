@@ -1,0 +1,248 @@
+# Media Pipeline Services
+# Includes Plex, Sonarr, Radarr, qBittorrent, Prowlarr, Bazarr, Overseerr, Tautulli
+
+services:
+  plex:
+    image: lscr.io/linuxserver/plex:latest
+    container_name: plex
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - VERSION=docker
+    volumes:
+      - ./plex/config:/config
+      - /srv/media:/media
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:32400/web/index.html"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          # No CPU limits for Plex to prevent throttling during transcoding
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=plex,environment=homelab"
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    restart: unless-stopped
+    ports:
+      - "8989:8989"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ./sonarr/config:/config
+      - /srv/media/tv:/tv
+      - /srv/downloads:/downloads
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8989/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=sonarr,environment=homelab"
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    restart: unless-stopped
+    ports:
+      - "7878:7878"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ./radarr/config:/config
+      - /srv/media/movies:/movies
+      - /srv/downloads:/downloads
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:7878/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=radarr,environment=homelab"
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    restart: unless-stopped
+    ports:
+      - "9696:9696"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ./prowlarr/config:/config
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9696/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=prowlarr,environment=homelab"
+
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    restart: unless-stopped
+    ports:
+      - "6767:6767"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ./bazarr/config:/config
+      - /srv/media/movies:/movies
+      - /srv/media/tv:/tv
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:6767/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=bazarr,environment=homelab"
+
+  overseerr:
+    image: sctx/overseerr:latest
+    container_name: overseerr
+    restart: unless-stopped
+    ports:
+      - "5055:5055"
+    environment:
+      - LOG_LEVEL=info
+      - TZ=${TZ}
+    volumes:
+      - ./overseerr/config:/app/config
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:5055/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=overseerr,environment=homelab"
+
+  tautulli:
+    image: lscr.io/linuxserver/tautulli:latest
+    container_name: tautulli
+    restart: unless-stopped
+    ports:
+      - "8181:8181"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ./tautulli/config:/config
+      - ./tautulli/logs:/logs
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8181/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+          cpus: '0.05'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=tautulli,environment=homelab"

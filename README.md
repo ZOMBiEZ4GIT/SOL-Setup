@@ -19,19 +19,27 @@ All services are accessible via `*.rolandgeorge.me` subdomains with automatic SS
 ```
 SOL-Setup/
 ├── docker/                    # Docker Compose stack
-│   ├── docker-compose.yml     # Main service definitions
+│   ├── docker-compose.yml     # Main orchestrator
+│   ├── services/              # Service group definitions
+│   │   ├── media.yml          # Media pipeline services
+│   │   ├── vpn.yml            # VPN and torrent services
+│   │   ├── monitoring.yml     # Monitoring and logging
+│   │   └── infrastructure.yml # Core infrastructure
 │   ├── env.template           # Environment template
 │   ├── cloudflared/           # Tunnel configuration
-│   ├── services/              # Future service split (scaffold)
 │   └── README_docker.md       # Docker usage guide
 ├── scripts/                   # Operational scripts
 │   ├── validate.sh            # Pre-deployment validation
 │   ├── deploy.sh              # Deployment automation
 │   ├── backup.sh              # Data backup
-│   └── rollback.sh            # Rollback to last-good
+│   ├── rollback.sh            # Rollback to last-good
+│   ├── generate_passwords.sh  # Secure password generation
+│   └── service-manager.sh     # Service group management
 ├── docs/                      # Documentation
 │   ├── homelab_stack.md       # As-built architecture
 │   ├── SOP_add_service.md     # Adding new services
+│   ├── security_best_practices.md # Security guidelines
+│   ├── quick_security_setup.md # Quick security setup
 │   └── prompts/               # Master prompts for automation
 ├── Makefile                   # Convenience targets
 ├── .gitignore                 # Exclude secrets & data
@@ -159,13 +167,31 @@ git tag -f last-good && git push --tags
 ### Makefile Targets
 
 ```bash
+# Security & Setup
 make setup-passwords  # Generate secure passwords for all services
 make validate         # Lint compose and check ports
+
+# Deployment & Management
 make deploy           # Pull images and deploy stack  
 make logs             # Follow logs from all services
+make status           # Show service status
+
+# Service Group Management
+make start GROUP=<group>      # Start services by group
+make stop GROUP=<group>       # Stop services by group
+make restart GROUP=<group>    # Restart services by group
+make update GROUP=<group>     # Update services by group
+
+# Monitoring & Information
+make resources        # Show resource usage
+make info SERVICE=<service>   # Show service information
+
+# Backup & Recovery
 make backup           # Create timestamped backup
 make rollback         # Reset to last-good tag and redeploy
 ```
+
+**Service Groups**: `media`, `vpn`, `monitoring`, `infrastructure`, `all`
 
 ### Manual Operations
 
