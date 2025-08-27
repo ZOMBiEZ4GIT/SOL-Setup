@@ -1,4 +1,4 @@
-# SOL Homelab - Production Docker Stack
+# SOL Homelab - Production Docker Stack - By Roland
 
 A production-ready homelab setup running on Ubuntu with Docker Compose, featuring media management, automation, monitoring, and secure external access via Cloudflare Tunnel.
 
