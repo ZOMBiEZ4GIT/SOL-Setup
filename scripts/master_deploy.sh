@@ -498,59 +498,38 @@ setup_directories() {
     success "Directories created and configured"
 }
 
-# Setup environment file with password generation
+# Setup basic environment file for initial deployment
 setup_environment() {
-    step "Setting up environment configuration..."
+    step "Setting up basic environment configuration..."
     
     cd "$PROJECT_ROOT/docker"
     
     if [ -f ".env" ]; then
-        warn "Existing .env file found"
-        read -p "Overwrite existing .env file? (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            info "Keeping existing .env file"
-            return 0
-        fi
+        success "Found existing .env file"
+        return 0
     fi
     
-    log "Creating .env file from template..."
+    log "Creating basic .env file from template..."
     cp env.template .env
     
-    # Generate secure passwords
-    log "Generating secure passwords..."
-    
-    local n8n_password=$(openssl rand -base64 24 | tr -d "=+/" | cut -c1-24)
-    local grafana_password=$(openssl rand -base64 24 | tr -d "=+/" | cut -c1-24)
-    
-    # Update passwords in .env file
+    # Set basic defaults to avoid environment variable warnings
     if [[ "$OSTYPE" == "darwin"* ]]; then
         # macOS
-        sed -i '' "s/N8N_PASSWORD=<generate_secure_password_here>/N8N_PASSWORD=${n8n_password}/" .env
-        sed -i '' "s/GRAFANA_ADMIN_PASSWORD=<generate_secure_password_here>/GRAFANA_ADMIN_PASSWORD=${grafana_password}/" .env
+        sed -i '' "s/N8N_PASSWORD=<generate_secure_password_here>/N8N_PASSWORD=changeme123/" .env
+        sed -i '' "s/GRAFANA_ADMIN_PASSWORD=<generate_secure_password_here>/GRAFANA_ADMIN_PASSWORD=changeme123/" .env
     else
         # Linux
-        sed -i "s/N8N_PASSWORD=<generate_secure_password_here>/N8N_PASSWORD=${n8n_password}/" .env
-        sed -i "s/GRAFANA_ADMIN_PASSWORD=<generate_secure_password_here>/GRAFANA_ADMIN_PASSWORD=${grafana_password}/" .env
+        sed -i "s/N8N_PASSWORD=<generate_secure_password_here>/N8N_PASSWORD=changeme123/" .env
+        sed -i "s/GRAFANA_ADMIN_PASSWORD=<generate_secure_password_here>/GRAFANA_ADMIN_PASSWORD=changeme123/" .env
     fi
     
-    # Generate backup encryption password
-    local backup_password=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-32)
-    echo "$backup_password" > "$PROJECT_ROOT/.backup_password"
-    chmod 600 "$PROJECT_ROOT/.backup_password"
+    success "Basic environment file created"
     
-    success "Environment file created with secure passwords"
-    
-    # Show configuration status
-    info "Generated passwords:"
-    echo "  - n8n Password: $n8n_password"
-    echo "  - Grafana Admin Password: $grafana_password"
-    echo "  - Backup Encryption: Generated"
-    echo ""
-    warn "IMPORTANT: Please update the following in docker/.env:"
-    warn "  - VPN credentials (OpenVPN or WireGuard)"
-    warn "  - Timezone if not Australia/Melbourne"
-    warn "  - User/Group IDs if different from 1000:1000"
+    warn "IMPORTANT: This .env file contains default/placeholder values"
+    warn "Run 'make setup-env' after deployment to configure:"
+    warn "  • Secure passwords"
+    warn "  • VPN credentials" 
+    warn "  • Custom timezone and user settings"
     echo ""
 }
 
@@ -836,9 +815,9 @@ EOF
     
     echo -e "${PURPLE}Next Steps:${NC}"
     echo "==========="
-    echo "  1. 🌐 Setup external access: make setup-tunnel (optional)"
-    echo "  2. 🔧 Configure services through their web interfaces"
-    echo "  3. 🔒 Update VPN credentials in docker/.env if not done yet"
+    echo "  1. 🔐 Configure environment: make setup-env (passwords, VPN, etc.)"
+    echo "  2. 🌐 Setup external access: make setup-tunnel (optional)"
+    echo "  3. 🔧 Configure services: make configure-services (optional)"
     echo "  4. 📊 Check service status: make status"
     echo "  5. 📝 View logs: make logs"
     echo "  6. 💾 Create backup: make backup"
@@ -855,12 +834,12 @@ EOF
     echo ""
     
     warn "IMPORTANT NOTES:"
-    warn "  • Keep your docker/.env file secure (contains passwords)"
-    warn "  • The .env file is not tracked in git (good!)"
-    warn "  • Services are currently LOCAL ONLY (accessible via localhost)"
-    warn "  • Run 'make setup-tunnel' to enable external access via Cloudflare"
-    warn "  • Backup your configuration: git add -A && git commit -m 'deploy: $(date +%Y%m%d-%H%M)'"
-    warn "  • Tag this deployment: git tag -f last-good && git push --tags"
+    warn "  • This is a BASIC deployment with default/placeholder configuration"
+    warn "  • Services use default passwords (changeme123) - NOT secure for production"
+    warn "  • VPN services will not work until credentials are configured"
+    warn "  • Services are LOCAL ONLY until external access is configured"
+    warn "  • Run the setup scripts above to complete configuration"
+    warn "  • Backup after full configuration: git add -A && git commit -m 'deploy: $(date +%Y%m%d-%H%M)'"
     
     # Check if override file was created
     if [ -f "docker/docker-compose.override.yml" ]; then
@@ -880,9 +859,9 @@ EOF
     fi
     
     echo ""
-    success "Master deployment pipeline completed successfully!"
-    info "Your SOL Homelab is now ready for local use! 🚀"
-    info "Run 'make setup-tunnel' to enable external access 🌐"
+    success "Master deployment (core infrastructure) completed successfully!"
+    info "🦴 The 'bones' of your SOL Homelab are now running! 🦴"
+    info "📋 Run the setup scripts above to complete configuration 📋"
 }
 
 # Main deployment pipeline

@@ -33,6 +33,12 @@ master-deploy-skip-cleanup:
 	@echo "🚀 Starting SOL Homelab Master Deployment (skipping cleanup)..."
 	bash scripts/master_deploy.sh --skip-cleanup
 
+setup-env:
+	@echo "🔐 Setting up environment configuration..."
+	@echo "This will configure passwords, VPN credentials, and system settings."
+	@echo ""
+	bash scripts/setup_env.sh
+
 setup-tunnel:
 	@echo "🔧 Setting up Cloudflare tunnel for external access..."
 	@echo "This will configure DNS and external routing for your services."

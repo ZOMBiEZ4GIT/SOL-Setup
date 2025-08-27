@@ -1,0 +1,53 @@
+# Emergency override to fix Loki logging issues
+# This file removes problematic Loki logging configuration
+
+services:
+  # Remove Loki logging for all services - use default Docker logging
+  cloudflared:
+    logging: {}
+  adguardhome:
+    logging: {}
+  portainer:
+    logging: {}
+  homarr:
+    logging: {}
+  n8n:
+    logging: {}
+  watchtower:
+    logging: {}
+  plex:
+    logging: {}
+  sonarr:
+    logging: {}
+  radarr:
+    logging: {}
+  prowlarr:
+    logging: {}
+  bazarr:
+    logging: {}
+  overseerr:
+    logging: {}
+  tautulli:
+    logging: {}
+  gluetun:
+    logging: {}
+  qbittorrent:
+    logging: {}
+  glances:
+    logging: {}
+  uptime-kuma:
+    logging: {}
+  dozzle:
+    logging: {}
+  prometheus:
+    logging: {}
+  node-exporter:
+    logging: {}
+  cadvisor:
+    logging: {}
+  loki:
+    logging: {}
+  promtail:
+    logging: {}
+  grafana:
+    logging: {}
