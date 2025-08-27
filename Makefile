@@ -33,6 +33,12 @@ master-deploy-skip-cleanup:
 	@echo "🚀 Starting SOL Homelab Master Deployment (skipping cleanup)..."
 	bash scripts/master_deploy.sh --skip-cleanup
 
+setup-tunnel:
+	@echo "🔧 Setting up Cloudflare tunnel for external access..."
+	@echo "This will configure DNS and external routing for your services."
+	@echo ""
+	bash scripts/setup_tunnel.sh
+
 logs:
 	@echo "Showing cloudflared logs (ctrl+c to exit)..."
 	@cd docker && docker compose logs -f cloudflared

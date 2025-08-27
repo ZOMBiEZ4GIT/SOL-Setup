@@ -23,15 +23,15 @@ The master deploy script performs these operations in sequence:
    - Generates secure passwords for all services
    - Creates backup encryption key
 
-4. **☁️ Cloudflared Validation**
-   - Validates tunnel configuration
-   - Checks for credentials files
-   - Ensures UUIDs match between config files
+4. **☁️ Cloudflared Placeholder Setup**
+   - Creates placeholder tunnel configuration
+   - Sets up config for local deployment
+   - Prepares for future external access setup
 
 5. **🚀 Service Deployment**
    - Pulls all latest container images
    - Deploys all services via Docker Compose
-   - Configures Cloudflare tunnels
+   - Starts services in local-only mode
 
 6. **✅ Health Checks**
    - Validates all services are running
@@ -47,8 +47,11 @@ The master deploy script performs these operations in sequence:
 git clone <your-repo-url> SOL-Setup
 cd SOL-Setup
 
-# Run master deployment
+# Run master deployment (local services)
 make master-deploy
+
+# Optionally setup external access
+make setup-tunnel
 ```
 
 ### Alternative Usage
@@ -62,8 +65,12 @@ make master-deploy-skip-cleanup
 # or
 bash scripts/master_deploy.sh --skip-cleanup
 
+# Setup external access separately
+bash scripts/setup_tunnel.sh
+
 # Show help
 bash scripts/master_deploy.sh --help
+bash scripts/setup_tunnel.sh --help
 ```
 
 ## Prerequisites
@@ -87,16 +94,14 @@ The script will check for these dependencies and guide you to install missing on
 
 ### Before Running
 
-1. **Set up Cloudflare tunnel** (if not already done):
-   ```bash
-   cd docker/cloudflared
-   docker run --rm -v $(pwd):/root/.cloudflared cloudflare/cloudflared:latest tunnel login
-   docker run --rm -v $(pwd):/root/.cloudflared cloudflare/cloudflared:latest tunnel create my-homelab
-   ```
+The master deploy script handles everything automatically! No manual configuration required.
 
-2. **Update configuration files** with your tunnel UUID:
-   - `docker/cloudflared/config.yml`
-   - `docker/services/infrastructure.yml`
+**Optional:** After deployment, you can setup external access:
+```bash
+make setup-tunnel
+```
+
+This will guide you through Cloudflare tunnel configuration interactively.
 
 ## What Gets Created
 
@@ -148,14 +153,17 @@ After successful deployment, you'll see:
 
 ### External URLs (via Cloudflare)
 
-All services configured in `cloudflared/config.yml` will be accessible via their hostnames.
+After running `make setup-tunnel`, all services will be accessible via their hostnames (e.g., `https://plex.rolandgeorge.me`).
+
+**Note:** External access requires tunnel configuration via `make setup-tunnel`.
 
 ### Next Steps
 
-1. **Configure VPN**: Update `docker/.env` with your VPN credentials
-2. **Test Services**: Access each service and complete initial setup
-3. **Security**: Review generated passwords and update if needed
-4. **Backup**: Create your first backup with `make backup`
+1. **Setup External Access** (optional): Run `make setup-tunnel` for external access via Cloudflare
+2. **Configure VPN**: Update `docker/.env` with your VPN credentials
+3. **Test Services**: Access each service and complete initial setup
+4. **Security**: Review generated passwords and update if needed
+5. **Backup**: Create your first backup with `make backup`
 
 ## Troubleshooting
 

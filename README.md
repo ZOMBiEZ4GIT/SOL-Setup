@@ -30,6 +30,7 @@ SOL-Setup/
 │   └── README_docker.md       # Docker usage guide
 ├── scripts/                   # Operational scripts
 │   ├── master_deploy.sh       # Complete fresh deployment from scratch
+│   ├── setup_tunnel.sh        # Interactive Cloudflare tunnel setup
 │   ├── validate.sh            # Pre-deployment validation
 │   ├── deploy.sh              # Deployment automation
 │   ├── backup.sh              # Data backup
@@ -57,17 +58,11 @@ SOL-Setup/
 git clone <your-repo-url> ~/SOL-Setup
 cd ~/SOL-Setup
 
-# 2. Setup Cloudflare tunnel (if not already done)
-cd docker/cloudflared
-docker run --rm -v $(pwd):/root/.cloudflared cloudflare/cloudflared:latest tunnel login
-docker run --rm -v $(pwd):/root/.cloudflared cloudflare/cloudflared:latest tunnel create sol-homelab
-
-# 3. Update tunnel UUID in config files
-# Edit docker/cloudflared/config.yml and docker/services/infrastructure.yml with your tunnel UUID
-
-# 4. Run master deployment (handles everything!)
-cd ~/SOL-Setup
+# 2. Run master deployment (handles everything!)
 make master-deploy
+
+# 3. Setup external access (optional - for remote access)
+make setup-tunnel
 ```
 
 **What the master deploy does:**
@@ -75,10 +70,13 @@ make master-deploy
 - ✅ Creates required directories with proper permissions
 - ✅ Generates secure passwords for all services
 - ✅ Sets up environment file automatically
+- ✅ Creates placeholder Cloudflare configuration
 - ✅ Validates configuration
-- ✅ Deploys all services
-- ✅ Configures Cloudflare tunnels
+- ✅ Deploys all services locally
 - ✅ Performs health checks
+
+**After deployment, optionally setup external access:**
+- 🌐 `make setup-tunnel` - Interactive Cloudflare tunnel setup for external access
 
 ### 📋 Manual Setup (Advanced Users)
 
@@ -218,6 +216,9 @@ git tag -f last-good && git push --tags
 # Master Deployment
 make master-deploy              # Complete fresh deployment from scratch
 make master-deploy-skip-cleanup # Fresh deployment without Docker cleanup
+
+# External Access Setup
+make setup-tunnel     # Configure Cloudflare tunnel for external access
 
 # Security & Setup
 make setup-passwords  # Generate secure passwords for all services

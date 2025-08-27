@@ -270,259 +270,91 @@ setup_environment() {
     echo ""
 }
 
-# Setup and guide cloudflared configuration
+# Setup placeholder cloudflared configuration for local deployment
 setup_cloudflared_config() {
-    step "Setting up Cloudflared tunnel configuration..."
+    step "Setting up Cloudflared configuration..."
     
     cd "$PROJECT_ROOT/docker"
     
     # Check if config exists
     if [ ! -f "cloudflared/config.yml" ]; then
-        warn "Cloudflared config not found. Setting up interactively..."
+        log "Creating placeholder Cloudflare tunnel configuration..."
         
-        echo ""
-        info "🔧 CLOUDFLARE TUNNEL SETUP REQUIRED"
-        echo "======================================="
-        echo ""
-        echo "To use external access via Cloudflare tunnels, you need to:"
-        echo "1. Login to your Cloudflare account"
-        echo "2. Create or use an existing tunnel"
-        echo "3. Configure the tunnel UUID"
-        echo ""
-        
-        read -p "Do you want to set up Cloudflare tunnel now? (y/N): " -n 1 -r
-        echo
-        
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            setup_cloudflare_tunnel_interactive
-        else
-            warn "Skipping Cloudflare tunnel setup"
-            warn "Services will only be accessible locally"
-            
-            # Create minimal config for local-only deployment
-            cat > cloudflared/config.yml << 'EOF'
+        # Create placeholder config for local-only deployment
+        cat > cloudflared/config.yml << 'EOF'
 # Cloudflare Tunnel Configuration - PLACEHOLDER
-# To enable external access, replace <TUNNEL_UUID> with your actual tunnel UUID
-# and download your tunnel credentials file
+# This is a placeholder configuration for local deployment
+# To enable external access via Cloudflare tunnels, run: make setup-tunnel
 
 tunnel: <TUNNEL_UUID>
 credentials-file: /etc/cloudflared/<TUNNEL_UUID>.json
 
-# This configuration is for local testing only
-# External access will not work until tunnel is properly configured
+# Ingress rules for all services
+# These will work once tunnel is properly configured
 ingress:
+  - hostname: plex.rolandgeorge.me
+    service: http://127.0.0.1:32400
+
+  - hostname: sonarr.rolandgeorge.me
+    service: http://127.0.0.1:8989
+  - hostname: radarr.rolandgeorge.me
+    service: http://127.0.0.1:7878
+  - hostname: n8n.rolandgeorge.me
+    service: http://127.0.0.1:5678
+  - hostname: qbit.rolandgeorge.me
+    service: http://127.0.0.1:8080
+  - hostname: portainer.rolandgeorge.me
+    service: http://127.0.0.1:9000
+  - hostname: dash.rolandgeorge.me
+    service: http://127.0.0.1:7575
+
+  - hostname: prowlarr.rolandgeorge.me
+    service: http://127.0.0.1:9696
+  - hostname: bazarr.rolandgeorge.me
+    service: http://127.0.0.1:6767
+  - hostname: overseerr.rolandgeorge.me
+    service: http://127.0.0.1:5055
+  - hostname: tautulli.rolandgeorge.me
+    service: http://127.0.0.1:8181
+  - hostname: glances.rolandgeorge.me
+    service: http://127.0.0.1:61208
+  - hostname: status.rolandgeorge.me
+    service: http://127.0.0.1:3001
+  - hostname: logs.rolandgeorge.me
+    service: http://127.0.0.1:9999
+
+  # AdGuard first-run wizard on :3000
+  - hostname: dns.rolandgeorge.me
+    service: http://127.0.0.1:3000
+
+  # Monitoring services
+  - hostname: grafana.rolandgeorge.me
+    service: http://127.0.0.1:3000
+  - hostname: prometheus.rolandgeorge.me
+    service: http://127.0.0.1:9090
+  - hostname: metrics.rolandgeorge.me
+    service: http://127.0.0.1:9100
+  - hostname: loki.rolandgeorge.me
+    service: http://127.0.0.1:3100
+
   - service: http_status:404
 EOF
-            info "Created placeholder config at cloudflared/config.yml"
-            info "You can configure the tunnel later and re-run: make master-deploy"
-            return 0
-        fi
-    fi
-    
-    # Validate existing config
-    validate_cloudflared_config
-}
-
-# Interactive Cloudflare tunnel setup
-setup_cloudflare_tunnel_interactive() {
-    log "Starting interactive Cloudflare tunnel setup..."
-    
-    # Step 1: Login
-    echo ""
-    info "Step 1: Login to Cloudflare"
-    echo "This will open a browser window for authentication..."
-    read -p "Press Enter to continue..."
-    
-    if ! docker run --rm -v "$(pwd)/cloudflared:/root/.cloudflared" cloudflare/cloudflared:latest tunnel login; then
-        error "Failed to login to Cloudflare"
-        info "You can continue without Cloudflare tunnel (local access only)"
-        read -p "Continue without tunnel? (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            exit 1
-        fi
-        return 0
-    fi
-    
-    # Step 2: List existing tunnels or create new one
-    echo ""
-    info "Step 2: Choose tunnel"
-    echo "Checking for existing tunnels..."
-    
-    local tunnel_list
-    local list_exit_code
-    
-    # Try to list tunnels, capture both output and exit code
-    set +e  # Temporarily disable exit on error
-    tunnel_list=$(docker run --rm -v "$(pwd)/cloudflared:/root/.cloudflared" cloudflare/cloudflared:latest tunnel list 2>&1)
-    list_exit_code=$?
-    set -e  # Re-enable exit on error
-    
-    if [ $list_exit_code -eq 0 ] && echo "$tunnel_list" | grep -q "ID"; then
-        echo "Found existing tunnels:"
-        echo "$tunnel_list"
-        echo ""
-        read -p "Do you want to use an existing tunnel? (y/N): " -n 1 -r
-        echo
         
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            echo "Please copy the UUID of the tunnel you want to use from the list above."
-            read -p "Enter tunnel UUID: " tunnel_uuid
-            
-            # Validate UUID format
-            if [[ ! $tunnel_uuid =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]]; then
-                warn "Invalid UUID format. Creating a new tunnel instead..."
-                create_new_tunnel
-            fi
-        else
-            create_new_tunnel
-        fi
-    elif [ $list_exit_code -eq 0 ] && echo "$tunnel_list" | grep -q "No tunnels"; then
-        info "No existing tunnels found. Creating a new one..."
-        create_new_tunnel
+        success "Created placeholder Cloudflare config"
+        info "Services will be accessible locally (http://localhost:XXXX)"
+        info "To enable external access later, run: make setup-tunnel"
     else
-        warn "Could not list tunnels (this is normal for new accounts):"
-        echo "$tunnel_list"
-        info "Creating a new tunnel..."
-        create_new_tunnel
-    fi
-    
-    # Step 3: Update configuration files
-    update_tunnel_config "$tunnel_uuid"
-    
-    # Step 4: Download credentials
-    log "Downloading tunnel credentials..."
-    if ! docker run --rm -v "$(pwd)/cloudflared:/root/.cloudflared" cloudflare/cloudflared:latest tunnel download "$tunnel_uuid"; then
-        error "Failed to download tunnel credentials"
-        exit 1
-    fi
-    
-    # Set proper permissions
-    chmod 640 "cloudflared/${tunnel_uuid}.json"
-    
-    success "Cloudflare tunnel configured successfully!"
-    info "Tunnel UUID: $tunnel_uuid"
-}
-
-# Create new tunnel
-create_new_tunnel() {
-    local tunnel_name="sol-homelab-$(date +%Y%m%d-%H%M)"
-    
-    log "Creating new tunnel: $tunnel_name"
-    
-    local create_output
-    local create_exit_code
-    
-    # Try to create tunnel
-    set +e  # Temporarily disable exit on error
-    create_output=$(docker run --rm -v "$(pwd)/cloudflared:/root/.cloudflared" cloudflare/cloudflared:latest tunnel create "$tunnel_name" 2>&1)
-    create_exit_code=$?
-    set -e  # Re-enable exit on error
-    
-    if [ $create_exit_code -eq 0 ] && echo "$create_output" | grep -q "Created tunnel"; then
-        tunnel_uuid=$(echo "$create_output" | grep "Created tunnel" | sed -E 's/.*with id: ([a-f0-9-]+).*/\1/')
-        success "Created new tunnel: $tunnel_name"
-        info "Tunnel UUID: $tunnel_uuid"
-    else
-        error "Failed to create tunnel:"
-        echo "$create_output"
-        echo ""
-        error "Possible solutions:"
-        error "1. Check your Cloudflare account has tunnel permissions"
-        error "2. Verify you're logged into the correct Cloudflare account"
-        error "3. Try creating a tunnel manually in the Cloudflare dashboard"
-        error ""
-        error "You can continue with local-only deployment and configure tunnels later."
+        success "Found existing Cloudflare configuration"
         
-        read -p "Continue without Cloudflare tunnel? (y/N): " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            tunnel_uuid="<TUNNEL_UUID>"  # Use placeholder
-            warn "Continuing with placeholder configuration"
-            return 0
+        # Check if it's still a placeholder
+        if grep -q "<TUNNEL_UUID>" cloudflared/config.yml; then
+            warn "Cloudflare tunnel not yet configured (using placeholder)"
+            info "Services will only be accessible locally"
+            info "To enable external access, run: make setup-tunnel"
         else
-            exit 1
+            success "Cloudflare tunnel appears to be configured"
         fi
     fi
-}
-
-# Update tunnel configuration files
-update_tunnel_config() {
-    local uuid="$1"
-    
-    log "Updating configuration files with tunnel UUID..."
-    
-    # Update cloudflared/config.yml
-    if [ -f "cloudflared/config.yml" ]; then
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            sed -i '' "s/<TUNNEL_UUID>/$uuid/g" cloudflared/config.yml
-        else
-            sed -i "s/<TUNNEL_UUID>/$uuid/g" cloudflared/config.yml
-        fi
-    fi
-    
-    # Update services/infrastructure.yml
-    if [ -f "services/infrastructure.yml" ]; then
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            sed -i '' "s/<TUNNEL_UUID>/$uuid/g" services/infrastructure.yml
-        else
-            sed -i "s/<TUNNEL_UUID>/$uuid/g" services/infrastructure.yml
-        fi
-    fi
-    
-    success "Updated configuration files with tunnel UUID"
-}
-
-# Validate existing cloudflared configuration
-validate_cloudflared_config() {
-    log "Validating Cloudflared configuration..."
-    
-    # Extract UUID from config.yml
-    local config_uuid
-    config_uuid=$(grep "^tunnel:" cloudflared/config.yml | sed 's/tunnel: *//' | tr -d ' ')
-    
-    if [ "$config_uuid" = "<TUNNEL_UUID>" ] || [ -z "$config_uuid" ]; then
-        warn "Tunnel UUID not configured in cloudflared/config.yml"
-        warn "External access will not work until tunnel is properly configured"
-        
-        read -p "Do you want to configure the tunnel now? (y/N): " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            setup_cloudflare_tunnel_interactive
-            return 0
-        else
-            warn "Continuing with local-only deployment"
-            return 0
-        fi
-    fi
-    
-    # Check credentials file
-    local creds_file="cloudflared/${config_uuid}.json"
-    if [ ! -f "$creds_file" ]; then
-        warn "Tunnel credentials file not found: $creds_file"
-        info "Downloading credentials..."
-        
-        if docker run --rm -v "$(pwd)/cloudflared:/root/.cloudflared" cloudflare/cloudflared:latest tunnel download "$config_uuid"; then
-            chmod 640 "$creds_file"
-            success "Downloaded tunnel credentials"
-        else
-            warn "Failed to download credentials - continuing without external access"
-            return 0
-        fi
-    fi
-    
-    # Check if UUID is updated in infrastructure.yml
-    if grep -q "<TUNNEL_UUID>" services/infrastructure.yml; then
-        log "Updating services/infrastructure.yml with tunnel UUID..."
-        update_tunnel_config "$config_uuid"
-    fi
-    
-    # Set proper permissions
-    if [ -f "$creds_file" ]; then
-        chmod 640 "$creds_file"
-    fi
-    
-    success "Cloudflared configuration validated (UUID: ${config_uuid:0:8}...)"
 }
 
 # Validate Docker Compose configuration
@@ -582,13 +414,24 @@ deploy_services() {
     fi
 }
 
-# Configure and start cloudflared
+# Start cloudflared service (with placeholder config)
 setup_cloudflared() {
-    step "Setting up Cloudflared tunnel..."
+    step "Starting Cloudflared service..."
     
     cd "$PROJECT_ROOT/docker"
     
-    log "Restarting cloudflared to apply configuration..."
+    # Check if cloudflared should be started
+    if grep -q "<TUNNEL_UUID>" cloudflared/config.yml; then
+        warn "Cloudflared tunnel not configured - starting in placeholder mode"
+        warn "Service will not be accessible externally until tunnel is configured"
+        info "Run 'make setup-tunnel' after deployment to configure external access"
+        
+        # Don't start cloudflared with placeholder config as it will fail
+        log "Skipping cloudflared startup (placeholder configuration)"
+        return 0
+    fi
+    
+    log "Starting cloudflared with configured tunnel..."
     $COMPOSE_CMD restart cloudflared
     
     # Wait for cloudflared to stabilize
@@ -601,8 +444,7 @@ setup_cloudflared() {
     if echo "$logs_output" | grep -i "route propagating\|tunnel running" >/dev/null; then
         success "Cloudflared tunnel is running and routes are propagating"
     else
-        warn "Cloudflared may need manual route configuration"
-        warn "Check logs: make logs"
+        warn "Cloudflared may need configuration - check logs: make logs"
         info "Recent cloudflared logs:"
         echo "$logs_output" | tail -10
     fi
@@ -683,12 +525,17 @@ EOF
     echo "  📈 Grafana: http://localhost:3000"
     echo ""
     
-    # External access via Cloudflare
-    if [ -f "docker/cloudflared/config.yml" ]; then
-        echo -e "${CYAN}External Access (via Cloudflare):${NC}"
-        grep -E "^\s*-\s*hostname:" docker/cloudflared/config.yml | sed 's/.*hostname: */  🌐 https:\/\//' | head -10
-        echo ""
+    # External access status
+    echo -e "${CYAN}External Access Status:${NC}"
+    if [ -f "docker/cloudflared/config.yml" ] && ! grep -q "<TUNNEL_UUID>" docker/cloudflared/config.yml; then
+        echo "  ✅ Configured - Services accessible via:"
+        grep -E "^\s*-\s*hostname:" docker/cloudflared/config.yml | sed 's/.*hostname: */     🌐 https:\/\//' | head -5
+        echo "     ... and more!"
+    else
+        echo "  ⚠️  Not configured - Services only accessible locally"
+        echo "     Run 'make setup-tunnel' to enable external access"
     fi
+    echo ""
     
     echo -e "${YELLOW}Generated Credentials:${NC}"
     echo "====================="
@@ -705,9 +552,9 @@ EOF
     
     echo -e "${PURPLE}Next Steps:${NC}"
     echo "==========="
-    echo "  1. 🔧 Configure services through their web interfaces"
-    echo "  2. 🔒 Update VPN credentials in docker/.env if not done yet"
-    echo "  3. 📡 Test external access via Cloudflare tunnels"
+    echo "  1. 🌐 Setup external access: make setup-tunnel (optional)"
+    echo "  2. 🔧 Configure services through their web interfaces"
+    echo "  3. 🔒 Update VPN credentials in docker/.env if not done yet"
     echo "  4. 📊 Check service status: make status"
     echo "  5. 📝 View logs: make logs"
     echo "  6. 💾 Create backup: make backup"
@@ -715,22 +562,26 @@ EOF
     
     echo -e "${GREEN}Useful Commands:${NC}"
     echo "==============="
-    echo "  make status     - Check service status"
-    echo "  make logs       - View cloudflared logs"
-    echo "  make backup     - Create system backup"
-    echo "  make validate   - Validate configuration"
-    echo "  make restart GROUP=all - Restart all services"
+    echo "  make setup-tunnel        - Setup external access via Cloudflare"
+    echo "  make status              - Check service status"
+    echo "  make logs                - View cloudflared logs"
+    echo "  make backup              - Create system backup"
+    echo "  make validate            - Validate configuration"
+    echo "  make restart GROUP=all   - Restart all services"
     echo ""
     
-    warn "IMPORTANT SECURITY NOTES:"
+    warn "IMPORTANT NOTES:"
     warn "  • Keep your docker/.env file secure (contains passwords)"
     warn "  • The .env file is not tracked in git (good!)"
+    warn "  • Services are currently LOCAL ONLY (accessible via localhost)"
+    warn "  • Run 'make setup-tunnel' to enable external access via Cloudflare"
     warn "  • Backup your configuration: git add -A && git commit -m 'deploy: $(date +%Y%m%d-%H%M)'"
     warn "  • Tag this deployment: git tag -f last-good && git push --tags"
     echo ""
     
     success "Master deployment pipeline completed successfully!"
-    info "Your SOL Homelab is now ready for use! 🚀"
+    info "Your SOL Homelab is now ready for local use! 🚀"
+    info "Run 'make setup-tunnel' to enable external access 🌐"
 }
 
 # Main deployment pipeline
@@ -820,3 +671,4 @@ fi
 
 # Run the main deployment pipeline
 main "$@"
+
