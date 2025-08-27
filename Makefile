@@ -45,6 +45,12 @@ setup-tunnel:
 	@echo ""
 	bash scripts/setup_tunnel.sh
 
+check-system:
+	@echo "🔍 Checking system requirements..."
+	@echo "This will verify your Ubuntu server is ready for deployment."
+	@echo ""
+	bash scripts/check_system.sh
+
 logs:
 	@echo "Showing cloudflared logs (ctrl+c to exit)..."
 	@cd docker && docker compose logs -f cloudflared

@@ -107,14 +107,34 @@ check_docker_daemon() {
     
     # Check if Docker command exists
     if ! command -v docker &> /dev/null; then
-        error "Docker not found. Please install Docker Desktop first."
-        error "Download from: https://www.docker.com/products/docker-desktop/"
-        exit 1
+        error "Docker not found. Installing Docker on Ubuntu..."
+        
+        # Auto-install Docker on Ubuntu
+        log "Installing Docker CE on Ubuntu..."
+        sudo apt-get update
+        sudo apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
+        
+        # Add Docker's official GPG key
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+        
+        # Add Docker repository
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+        
+        # Install Docker
+        sudo apt-get update
+        sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+        
+        # Add current user to docker group
+        sudo usermod -aG docker $USER
+        
+        success "Docker installed successfully"
+        warn "You may need to log out and back in for group changes to take effect"
+        warn "Or run: newgrp docker"
     fi
     
     # Check if Docker daemon is accessible
     local docker_attempts=0
-    local max_attempts=30
+    local max_attempts=6
     
     while [ $docker_attempts -lt $max_attempts ]; do
         if docker info &> /dev/null 2>&1; then
@@ -123,18 +143,25 @@ check_docker_daemon() {
         
         if [ $docker_attempts -eq 0 ]; then
             warn "Docker daemon not accessible"
-            info "This usually means Docker Desktop isn't running yet"
-            echo ""
-            info "Please start Docker Desktop:"
-            info "1. Open Docker Desktop application"
-            info "2. Wait for it to show 'Engine running' (green indicator)"
-            info "3. This script will wait up to 5 minutes for Docker to start"
-            echo ""
-            log "Waiting for Docker Desktop to start..."
+            info "Starting Docker daemon..."
+            
+            # Try to start Docker daemon
+            if ! sudo systemctl is-active --quiet docker; then
+                sudo systemctl start docker
+                sudo systemctl enable docker
+            fi
+            
+            # If user not in docker group, fix permissions
+            if ! groups | grep -q docker; then
+                warn "User not in docker group. Adding user to docker group..."
+                sudo usermod -aG docker $USER
+                warn "Running newgrp docker to apply group changes..."
+                exec newgrp docker
+            fi
         fi
         
-        echo -ne "\rWaiting for Docker... ($((docker_attempts + 1))/$max_attempts) "
-        sleep 10
+        echo -ne "\rWaiting for Docker daemon... ($((docker_attempts + 1))/$max_attempts) "
+        sleep 5
         docker_attempts=$((docker_attempts + 1))
     done
     
@@ -142,12 +169,13 @@ check_docker_daemon() {
     
     if ! docker info &> /dev/null 2>&1; then
         error "Docker daemon still not accessible after waiting"
-        error "Please ensure Docker Desktop is running and try again"
+        error "Please check Docker installation and try again"
         error ""
         error "Common solutions:"
-        error "• Start Docker Desktop application"
-        error "• Restart Docker Desktop if it's stuck"
-        error "• Check Windows services for Docker Desktop Service"
+        error "• Run: sudo systemctl start docker"
+        error "• Add user to docker group: sudo usermod -aG docker \$USER"
+        error "• Log out and back in, or run: newgrp docker"
+        error "• Check Docker status: sudo systemctl status docker"
         exit 1
     fi
     
@@ -156,12 +184,21 @@ check_docker_daemon() {
     # Determine compose command
     if docker compose version &> /dev/null 2>&1; then
         COMPOSE_CMD="docker compose"
-    elif docker-compose version &> /dev/null 2>&1; then
+    elif command -v docker-compose &> /dev/null && docker-compose version &> /dev/null 2>&1; then
         COMPOSE_CMD="docker-compose"
     else
-        error "Neither 'docker compose' nor 'docker-compose' available"
-        error "Please ensure Docker Desktop is properly installed"
-        exit 1
+        warn "Docker Compose not found. Installing..."
+        
+        # Install docker-compose if not available
+        if command -v apt-get &> /dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y docker-compose-plugin
+            COMPOSE_CMD="docker compose"
+        else
+            # Fallback to pip installation
+            sudo pip3 install docker-compose
+            COMPOSE_CMD="docker-compose"
+        fi
     fi
     
     success "Docker Compose available (using: $COMPOSE_CMD)"
@@ -477,39 +514,67 @@ perform_docker_cleanup() {
     done
     echo ""
     
+    # Navigate to docker directory for compose cleanup
+    cd "$PROJECT_ROOT/docker"
+    
+    log "Stopping and removing compose services..."
+    if [ -f "docker-compose.yml" ]; then
+        $COMPOSE_CMD down --remove-orphans --volumes 2>/dev/null || true
+    fi
+    
     log "Stopping all containers..."
-    if docker ps -q | wc -l | grep -q "^0$"; then
-        info "No running containers to stop"
+    local running_containers
+    running_containers=$(docker ps -q)
+    if [ -n "$running_containers" ]; then
+        docker stop $running_containers 2>/dev/null || true
     else
-        docker stop $(docker ps -q) 2>/dev/null || true
+        info "No running containers to stop"
     fi
     
     log "Removing all containers..."
-    if docker ps -aq | wc -l | grep -q "^0$"; then
-        info "No containers to remove"
+    local all_containers
+    all_containers=$(docker ps -aq)
+    if [ -n "$all_containers" ]; then
+        docker rm $all_containers 2>/dev/null || true
     else
-        docker rm $(docker ps -aq) 2>/dev/null || true
+        info "No containers to remove"
     fi
     
     log "Removing all images..."
-    if docker images -q | wc -l | grep -q "^0$"; then
-        info "No images to remove"
+    local all_images
+    all_images=$(docker images -q)
+    if [ -n "$all_images" ]; then
+        docker rmi $all_images 2>/dev/null || true
     else
-        docker rmi $(docker images -q) 2>/dev/null || true
+        info "No images to remove"
     fi
     
     log "Removing all volumes..."
-    if docker volume ls -q | wc -l | grep -q "^0$"; then
-        info "No volumes to remove"
+    local all_volumes
+    all_volumes=$(docker volume ls -q)
+    if [ -n "$all_volumes" ]; then
+        docker volume rm $all_volumes 2>/dev/null || true
     else
-        docker volume rm $(docker volume ls -q) 2>/dev/null || true
+        info "No volumes to remove"
     fi
     
     log "Removing all networks (except defaults)..."
-    docker network ls --format "{{.Name}}" | grep -v -E '^(bridge|host|none)$' | xargs -r docker network rm 2>/dev/null || true
+    local custom_networks
+    custom_networks=$(docker network ls --format "{{.Name}}" | grep -v -E '^(bridge|host|none)$' || true)
+    if [ -n "$custom_networks" ]; then
+        echo "$custom_networks" | xargs -r docker network rm 2>/dev/null || true
+    else
+        info "No custom networks to remove"
+    fi
     
     log "Cleaning up Docker system..."
     docker system prune -af --volumes 2>/dev/null || true
+    
+    # Remove any leftover override files from previous failed attempts
+    if [ -f "docker-compose.override.yml" ]; then
+        log "Removing old override file..."
+        rm -f docker-compose.override.yml
+    fi
     
     success "Docker cleanup completed"
 }
@@ -523,19 +588,28 @@ setup_directories() {
     sudo mkdir -p /srv/media/{movies,tv} /srv/downloads
     sudo chown -R $USER:$USER /srv
     
+    # Ensure proper permissions
+    sudo chmod 755 /srv /srv/media /srv/downloads /srv/media/movies /srv/media/tv
+    
     # Docker data directories
     log "Creating Docker data directories..."
     cd "$PROJECT_ROOT/docker"
     
     # Create directories for persistent data
-    mkdir -p {adguard/{work,conf},cloudflared,portainer,homarr/configs,n8n,watchtower}
-    mkdir -p {plex,sonarr,radarr,prowlarr,bazarr,overseerr,tautulli,qbittorrent}/config
-    mkdir -p {glances,uptime-kuma,dozzle}/data
-    mkdir -p {prometheus/data,grafana/data,loki/data}
+    mkdir -p adguard/{work,conf} cloudflared portainer homarr/configs n8n watchtower
+    mkdir -p plex/config sonarr/config radarr/config prowlarr/config bazarr/config overseerr/config tautulli/config qbittorrent/config
+    mkdir -p glances/data uptime-kuma/data dozzle/data
+    mkdir -p prometheus/data grafana/data loki/data
+    mkdir -p services/grafana/{data,provisioning} services/loki services/promtail
     
-    # Set proper permissions
-    chmod 755 cloudflared
-    chmod 755 adguard/{work,conf}
+    # Set proper permissions for Docker services
+    chmod 755 cloudflared adguard/work adguard/conf
+    
+    # Ensure current user owns all config directories
+    sudo chown -R $USER:$USER "$PROJECT_ROOT/docker"
+    
+    # Special permissions for some services
+    chmod 644 cloudflared/* 2>/dev/null || true
     
     success "Directories created and configured"
 }
@@ -880,7 +954,7 @@ EOF
     warn "  • Services use default passwords (changeme123) - NOT secure for production"
     warn "  • VPN services will not work until credentials are configured"
     warn "  • Services are LOCAL ONLY until external access is configured"
-    warn "  • Docker Desktop must remain running for services to work"
+    warn "  • Docker daemon must remain running for services to work"
     warn "  • Run the setup scripts above to complete configuration"
     warn "  • Backup after full configuration: git add -A && git commit -m 'deploy: $(date +%Y%m%d-%H%M)'"
     

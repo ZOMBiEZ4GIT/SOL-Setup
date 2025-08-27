@@ -54,7 +54,7 @@ SOL-Setup/
 ### 🚀 Master Deploy (Recommended - One Command Fresh Setup)
 
 ```bash
-# 1. Clone repository
+# 1. Clone repository on your Ubuntu server
 git clone <your-repo-url> ~/SOL-Setup
 cd ~/SOL-Setup
 
@@ -64,6 +64,8 @@ make master-deploy
 # 3. Setup external access (optional - for remote access)
 make setup-tunnel
 ```
+
+**Note:** This is designed for Ubuntu server. The script will auto-install Docker if needed.
 
 **What the master deploy does:**
 - ✅ Cleans all Docker containers, images, and volumes

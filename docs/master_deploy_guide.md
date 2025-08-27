@@ -77,11 +77,13 @@ bash scripts/setup_tunnel.sh --help
 
 ### System Requirements
 
-- **Operating System**: Linux (Ubuntu/Debian recommended)
-- **Docker**: Docker Engine 20.10+ and Docker Compose v2
+- **Operating System**: Ubuntu Server 20.04+ (or compatible Linux)
+- **Architecture**: x86_64 (amd64) or ARM64
+- **Memory**: Minimum 4GB RAM (8GB+ recommended)
+- **Storage**: At least 50GB free space for containers and media
 - **Network**: Internet connection for pulling images
-- **Storage**: At least 20GB free space
-- **Permissions**: Sudo access for directory creation
+- **Permissions**: Sudo access for Docker installation and directory creation
+- **User**: Non-root user account with sudo privileges
 
 ### Required Dependencies
 
@@ -96,7 +98,12 @@ The script will check for these dependencies and guide you to install missing on
 
 The master deploy script handles everything automatically! No manual configuration required.
 
-**Optional:** After deployment, you can setup external access:
+**Prerequisites on Ubuntu server:**
+- Git installed: `sudo apt update && sudo apt install -y git`
+- Script will auto-install Docker if not present
+- Current user should have sudo privileges
+
+**After deployment, optionally setup external access:**
 ```bash
 make setup-tunnel
 ```
