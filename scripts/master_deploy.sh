@@ -135,6 +135,101 @@ check_docker_daemon() {
     fi
     
     success "Docker daemon running (using: $COMPOSE_CMD)"
+    
+    # Install Loki logging plugin
+    install_loki_plugin
+}
+
+# Install Loki logging plugin for Docker
+install_loki_plugin() {
+    step "Setting up Docker logging plugins..."
+    
+    # Check if Loki plugin is already installed
+    if docker plugin ls | grep -q "loki"; then
+        success "Loki logging plugin already installed"
+        return 0
+    fi
+    
+    log "Installing Loki logging driver plugin..."
+    
+    # Install the Loki logging plugin
+    if docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all-permissions; then
+        success "Loki logging plugin installed successfully"
+    else
+        warn "Failed to install Loki logging plugin"
+        warn "Will deploy with standard Docker logging instead"
+        
+        # Disable Loki logging in compose config
+        disable_loki_logging
+        return 0
+    fi
+}
+
+# Disable Loki logging if plugin installation fails
+disable_loki_logging() {
+    log "Disabling Loki logging configuration..."
+    
+    cd "$PROJECT_ROOT/docker"
+    
+    # Create a temporary compose override to disable Loki logging
+    cat > docker-compose.override.yml << 'EOF'
+# Temporary override to disable Loki logging
+# This file is auto-generated when Loki plugin is not available
+
+services:
+  # Disable Loki logging for all services by using default logging
+  cloudflared:
+    logging: {}
+  adguardhome:
+    logging: {}
+  portainer:
+    logging: {}
+  homarr:
+    logging: {}
+  n8n:
+    logging: {}
+  watchtower:
+    logging: {}
+  plex:
+    logging: {}
+  sonarr:
+    logging: {}
+  radarr:
+    logging: {}
+  prowlarr:
+    logging: {}
+  bazarr:
+    logging: {}
+  overseerr:
+    logging: {}
+  tautulli:
+    logging: {}
+  gluetun:
+    logging: {}
+  qbittorrent:
+    logging: {}
+  glances:
+    logging: {}
+  uptime-kuma:
+    logging: {}
+  dozzle:
+    logging: {}
+  prometheus:
+    logging: {}
+  node-exporter:
+    logging: {}
+  cadvisor:
+    logging: {}
+  loki:
+    logging: {}
+  promtail:
+    logging: {}
+  grafana:
+    logging: {}
+EOF
+    
+    warn "Created docker-compose.override.yml to disable Loki logging"
+    info "You can enable Loki logging later by removing this file and restarting services"
 }
 
 # Complete Docker cleanup
@@ -577,8 +672,18 @@ EOF
     warn "  • Run 'make setup-tunnel' to enable external access via Cloudflare"
     warn "  • Backup your configuration: git add -A && git commit -m 'deploy: $(date +%Y%m%d-%H%M)'"
     warn "  • Tag this deployment: git tag -f last-good && git push --tags"
-    echo ""
     
+    # Check if override file was created
+    if [ -f "docker/docker-compose.override.yml" ]; then
+        echo ""
+        warn "LOGGING NOTICE:"
+        warn "  • Loki logging plugin could not be installed"
+        warn "  • Services are using standard Docker logging instead"
+        warn "  • Centralized logging via Loki service may not work optimally"
+        warn "  • Remove docker/docker-compose.override.yml and restart to re-enable"
+    fi
+    
+    echo ""
     success "Master deployment pipeline completed successfully!"
     info "Your SOL Homelab is now ready for local use! 🚀"
     info "Run 'make setup-tunnel' to enable external access 🌐"
