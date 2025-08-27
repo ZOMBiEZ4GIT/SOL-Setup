@@ -289,28 +289,71 @@ id $USER  # Should match PUID:PGID in .env
 ### Automated Backup
 
 ```bash
-make backup  # Creates timestamped archive
+make backup  # Creates encrypted, timestamped archive with cloud storage
 ```
 
-Includes all persistent data and configurations.
+**Features:**
+- **Compression**: Automatic gzip compression
+- **Encryption**: AES-256-CBC encryption with secure password generation
+- **Cloud Storage**: Automatic upload to Proton Drive
+- **GitHub Backup**: Creates timestamped backup branches
+- **Retention**: Configurable retention policies (default: 30 days)
+- **Verification**: Automatic backup integrity verification
 
 ### Manual Backup
 
 ```bash
+# Enhanced backup with all features
+bash scripts/backup.sh
+
+# Basic backup (legacy)
 tar czf homelab_backup_$(date +%F).tgz \
   docker/*/config docker/cloudflared/config.yml docs
 ```
 
+### Backup Configuration
+
+Configure backup settings in `scripts/backup.sh`:
+```bash
+# Retention policy
+RETENTION_DAYS=30
+
+# Enable/disable features
+ENCRYPT=true
+PROTON_DRIVE_BACKUP=true
+GITHUB_BACKUP=true
+
+# Proton Drive configuration (requires rclone setup)
+# GitHub repository for backup branches
+GITHUB_REPO="your-username/your-backup-repo"
+```
+
 ### Disaster Recovery
 
-1. Restore from backup:
+1. **Restore from local backup**:
    ```bash
-   tar xzf homelab_backup_<timestamp>.tgz
+   # Decrypt and extract
+   openssl enc -d -aes-256-cbc -in homelab_backup_TIMESTAMP.tar.gz.enc \
+     -out homelab_backup.tar.gz -pass file:.backup_password
+   tar xzf homelab_backup.tar.gz
    ```
 
-2. Recreate tunnel credentials in `docker/cloudflared/`
+2. **Restore from Proton Drive**:
+   ```bash
+   rclone copy proton:homelab-backups/backup_file.tar.gz.enc ./
+   # Then decrypt as above
+   ```
 
-3. Deploy:
+3. **Restore from GitHub**:
+   ```bash
+   git fetch origin
+   git checkout backup-TIMESTAMP
+   # Copy files back to original locations
+   ```
+
+4. **Recreate tunnel credentials** in `docker/cloudflared/`
+
+5. **Deploy**:
    ```bash
    make deploy
    ```

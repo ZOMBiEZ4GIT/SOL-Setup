@@ -1,0 +1,112 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['localhost:9100']
+
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['localhost:8080']
+
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['localhost:9323']
+
+  - job_name: 'loki'
+    static_configs:
+      - targets: ['localhost:3100']
+
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['localhost:3000']
+
+  - job_name: 'plex'
+    static_configs:
+      - targets: ['localhost:32400']
+    metrics_path: /metrics
+
+  - job_name: 'sonarr'
+    static_configs:
+      - targets: ['localhost:8989']
+    metrics_path: /metrics
+
+  - job_name: 'radarr'
+    static_configs:
+      - targets: ['localhost:7878']
+    metrics_path: /metrics
+
+  - job_name: 'prowlarr'
+    static_configs:
+      - targets: ['localhost:9696']
+    metrics_path: /metrics
+
+  - job_name: 'bazarr'
+    static_configs:
+      - targets: ['localhost:6767']
+    metrics_path: /metrics
+
+  - job_name: 'overseerr'
+    static_configs:
+      - targets: ['localhost:5055']
+    metrics_path: /metrics
+
+  - job_name: 'tautulli'
+    static_configs:
+      - targets: ['localhost:8181']
+    metrics_path: /metrics
+
+  - job_name: 'glances'
+    static_configs:
+      - targets: ['localhost:61208']
+    metrics_path: /metrics
+
+  - job_name: 'uptime-kuma'
+    static_configs:
+      - targets: ['localhost:3001']
+    metrics_path: /metrics
+
+  - job_name: 'dozzle'
+    static_configs:
+      - targets: ['localhost:9999']
+    metrics_path: /metrics
+
+  - job_name: 'adguard-home'
+    static_configs:
+      - targets: ['localhost:3000']
+    metrics_path: /metrics
+
+  - job_name: 'n8n'
+    static_configs:
+      - targets: ['localhost:5678']
+    metrics_path: /metrics
+
+  - job_name: 'homarr'
+    static_configs:
+      - targets: ['localhost:7575']
+    metrics_path: /metrics
+
+  - job_name: 'portainer'
+    static_configs:
+      - targets: ['localhost:9000']
+    metrics_path: /metrics
+
+  - job_name: 'gluetun'
+    static_configs:
+      - targets: ['localhost:8080']
+    metrics_path: /metrics
+
+  - job_name: 'qbittorrent'
+    static_configs:
+      - targets: ['localhost:8080']
+    metrics_path: /metrics

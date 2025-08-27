@@ -8,6 +8,13 @@ services:
     command: tunnel --no-autoupdate run <TUNNEL_UUID>
     volumes:
       - ./cloudflared:/etc/cloudflared
+    security_opt: ["no-new-privileges:true"]
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=cloudflared,environment=homelab"
 
   # --- Core apps ---
   plex:
@@ -23,6 +30,27 @@ services:
     volumes:
       - ./plex/config:/config
       - /srv/media:/media
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:32400/web/index.html"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=plex,environment=homelab"
 
   n8n:
     image: n8nio/n8n:latest
@@ -37,6 +65,27 @@ services:
       - GENERIC_TIMEZONE=${TZ}
     volumes:
       - ./n8n:/home/node/.n8n
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:5678/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.1'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=n8n,environment=homelab"
 
   sonarr:
     image: lscr.io/linuxserver/sonarr:latest
@@ -52,6 +101,27 @@ services:
       - ./sonarr/config:/config
       - /srv/media/tv:/tv
       - /srv/downloads:/downloads
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8989/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=sonarr,environment=homelab"
 
   radarr:
     image: lscr.io/linuxserver/radarr:latest
@@ -67,6 +137,27 @@ services:
       - ./radarr/config:/config
       - /srv/media/movies:/movies
       - /srv/downloads:/downloads
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:7878/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=radarr,environment=homelab"
 
   homarr:
     image: ghcr.io/ajnart/homarr:latest
@@ -77,6 +168,27 @@ services:
     volumes:
       - ./homarr/configs:/app/data/configs
       - /var/run/docker.sock:/var/run/docker.sock
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:7575/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+          cpus: '0.05'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=homarr,environment=homelab"
 
   portainer:
     image: portainer/portainer-ce:latest
@@ -89,6 +201,27 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./portainer/data:/data
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+          cpus: '0.05'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=portainer,environment=homelab"
 
   # --- ProtonVPN via Gluetun (OpenVPN by default) + qBittorrent through it ---
   gluetun:
@@ -112,6 +245,27 @@ services:
       # Optional hardening:
       - FIREWALL_OUTBOUND_SUBNETS=0.0.0.0/0,::/0
       - BLOCK_SURVEILLANCE=on
+    # Note: gluetun needs NET_ADMIN capability, so no security_opt
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/v1/openvpn/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+          cpus: '0.05'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=gluetun,environment=homelab"
 
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
@@ -127,6 +281,27 @@ services:
     volumes:
       - ./qbittorrent/config:/config
       - /srv/downloads:/downloads
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/api/v2/app/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.1'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=qbittorrent,environment=homelab"
 
   # --- Indexers & friends ---
   prowlarr:
@@ -141,6 +316,27 @@ services:
       - TZ=${TZ}
     volumes:
       - ./prowlarr/config:/config
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9696/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=prowlarr,environment=homelab"
 
   bazarr:
     image: lscr.io/linuxserver/bazarr:latest
@@ -156,6 +352,27 @@ services:
       - ./bazarr/config:/config
       - /srv/media/movies:/movies
       - /srv/media/tv:/tv
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:6767/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=bazarr,environment=homelab"
 
   overseerr:
     image: sctx/overseerr:latest
@@ -168,6 +385,27 @@ services:
       - TZ=${TZ}
     volumes:
       - ./overseerr/config:/app/config
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:5055/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=overseerr,environment=homelab"
 
   tautulli:
     image: lscr.io/linuxserver/tautulli:latest
@@ -182,6 +420,27 @@ services:
     volumes:
       - ./tautulli/config:/config
       - ./tautulli/logs:/logs
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8181/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+          cpus: '0.05'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=tautulli,environment=homelab"
 
   # --- Monitoring & ops ---
   glances:
@@ -198,6 +457,27 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:61208/api/3/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+          cpus: '0.05'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=glances,environment=homelab"
 
   uptime-kuma:
     image: louislam/uptime-kuma:1
@@ -207,6 +487,27 @@ services:
       - "3001:3001"
     volumes:
       - ./uptime-kuma/data:/app/data
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:3001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+          cpus: '0.05'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=uptime-kuma,environment=homelab"
 
   dozzle:
     image: amir20/dozzle:latest
@@ -216,6 +517,27 @@ services:
       - "9999:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9999/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+          cpus: '0.05'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=dozzle,environment=homelab"
 
   # --- Network-wide DNS/ad blocking ---
   adguardhome:
@@ -226,3 +548,229 @@ services:
     volumes:
       - ./adguard/work:/opt/adguardhome/work
       - ./adguard/conf:/opt/adguardhome/conf
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:3000/control/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+          cpus: '0.05'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=adguardhome,environment=homelab"
+
+  # --- Centralized Logging Stack ---
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    security_opt: ["no-new-privileges:true"]
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    restart: unless-stopped
+    volumes:
+      - ./promtail:/etc/promtail
+      - /var/log:/var/log
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+    security_opt: ["no-new-privileges:true"]
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+          cpus: '0.05'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin_change_me
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./grafana/data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    security_opt: ["no-new-privileges:true"]
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=grafana,environment=homelab"
+
+  # --- Metrics Collection Stack ---
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    security_opt: ["no-new-privileges:true"]
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=prometheus,environment=homelab"
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    security_opt: ["no-new-privileges:true"]
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+          cpus: '0.05'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=node-exporter,environment=homelab"
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    security_opt: ["no-new-privileges:true"]
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+          cpus: '0.05'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=cadvisor,environment=homelab"
+
+  # --- Automated Updates ---
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_INCLUDE_STOPPED=true
+      - WATCHTOWER_REVIVE_STOPPED=true
+      - WATCHTOWER_POLL_INTERVAL=86400  # 24 hours
+      - WATCHTOWER_LABEL_ENABLE=true
+      - WATCHTOWER_NOTIFICATIONS=shoutrrr
+      - SHOUTRRR_URL=${SHOUTRRR_URL:-}
+      - TZ=${TZ}
+    command: --label-enable --cleanup --include-stopped --revive-stopped
+    security_opt: ["no-new-privileges:true"]
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+          cpus: '0.05'
+    logging:
+      driver: "loki"
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-pipeline-stages: "timestamp"
+        loki-external-labels: "service=watchtower,environment=homelab"
+
+volumes:
+  prometheus_data:

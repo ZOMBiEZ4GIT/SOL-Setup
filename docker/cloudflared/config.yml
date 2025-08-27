@@ -37,4 +37,14 @@ ingress:
   - hostname: dns.rolandgeorge.me
     service: http://127.0.0.1:3000
 
+  # New monitoring services
+  - hostname: grafana.rolandgeorge.me
+    service: http://127.0.0.1:3000
+  - hostname: prometheus.rolandgeorge.me
+    service: http://127.0.0.1:9090
+  - hostname: metrics.rolandgeorge.me
+    service: http://127.0.0.1:9100
+  - hostname: loki.rolandgeorge.me
+    service: http://127.0.0.1:3100
+
   - service: http_status:404
