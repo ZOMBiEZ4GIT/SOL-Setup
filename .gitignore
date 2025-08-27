@@ -1,0 +1,15 @@
+# secrets & creds
+docker/.env
+docker/cloudflared/*.json
+**/id_*
+
+# container data / transient
+**/data/
+**/work/
+**/logs/
+**/conf/*secrets*
+**/.DS_Store
+
+# archives
+*.tgz
+*.tar.gz
